@@ -54,6 +54,7 @@ func newRootCmd() *cobra.Command {
 	root.AddCommand(newWhatIfCmd())
 	root.AddCommand(newMergeCmd())
 	root.AddCommand(newLRECmd())
+	root.AddCommand(newQuickCmd())
 
 	return root
 }
@@ -196,14 +197,16 @@ func newTUICmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "tui",
-		Short: "Interactive TUI for exploring calculation results",
+		Short: "Interactive TUI for exploring calculation results or quick calculator",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runTUI(cmd, inputPath, outputPath)
+			if inputPath != "" {
+				return runTUI(cmd, inputPath, outputPath)
+			}
+			return tui.RunQuick()
 		},
 	}
-	cmd.Flags().StringVarP(&inputPath, "input", "i", "", "Input config file path")
+	cmd.Flags().StringVarP(&inputPath, "input", "i", "", "Input config file path (omit for quick calculator)")
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output XLSX file path for export")
-	_ = cmd.MarkFlagRequired("input")
 	return cmd
 }
 

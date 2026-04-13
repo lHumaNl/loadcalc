@@ -6,13 +6,12 @@ LDFLAGS := -ldflags "-s -w -X main.Version=$(VERSION)"
 
 # Binary and directories
 BINARY_NAME := loadcalc
-BIN_DIR := bin
 CMD_DIR := cmd/loadcalc
 
 ## build: Build the binary
 build:
 	@echo "Building $(BINARY_NAME)..."
-	go build $(LDFLAGS) -o $(BIN_DIR)/$(BINARY_NAME) ./$(CMD_DIR)
+	go build $(LDFLAGS) -o $(BINARY_NAME) ./$(CMD_DIR)
 
 ## run: Run the application locally
 run:
@@ -32,7 +31,7 @@ lint:
 
 ## clean: Remove build artifacts
 clean:
-	rm -rf $(BIN_DIR)/
+	rm -f $(BINARY_NAME)
 	rm -f coverage.out coverage.html
 
 ## fmt: Format code
