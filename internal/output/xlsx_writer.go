@@ -12,28 +12,36 @@ import (
 // XLSXWriter writes calculation results to an XLSX file.
 type XLSXWriter struct{}
 
+// createSheets creates the workbook sheets based on tool type.
+func createSheets(f *excelize.File, tool config.Tool) error {
+	if err := f.SetSheetName("Sheet1", "Summary"); err != nil {
+		return fmt.Errorf("renaming sheet: %w", err)
+	}
+	for _, name := range []string{"Steps Detail", "Timeline", "Input Parameters"} {
+		if _, err := f.NewSheet(name); err != nil {
+			return fmt.Errorf("creating %s sheet: %w", name, err)
+		}
+	}
+	if tool == config.ToolJMeter {
+		if _, err := f.NewSheet("JMeter Config"); err != nil {
+			return fmt.Errorf("creating JMeter Config sheet: %w", err)
+		}
+	}
+	if tool == config.ToolLREPC {
+		if _, err := f.NewSheet("LRE PC Config"); err != nil {
+			return fmt.Errorf("creating LRE PC Config sheet: %w", err)
+		}
+	}
+	return nil
+}
+
 // Write generates the XLSX workbook and saves it to dest.
 func (w *XLSXWriter) Write(results engine.CalculationResults, dest string) error {
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
 
-	// Create sheets (Sheet1 is created by default, rename it)
-	if err := f.SetSheetName("Sheet1", "Summary"); err != nil {
-		return fmt.Errorf("renaming sheet: %w", err)
-	}
-	if _, err := f.NewSheet("Steps Detail"); err != nil {
-		return fmt.Errorf("creating Steps Detail sheet: %w", err)
-	}
-	if _, err := f.NewSheet("Timeline"); err != nil {
-		return fmt.Errorf("creating Timeline sheet: %w", err)
-	}
-	if _, err := f.NewSheet("Input Parameters"); err != nil {
-		return fmt.Errorf("creating Input Parameters sheet: %w", err)
-	}
-	if results.Plan.GlobalDefaults.Tool == config.ToolJMeter {
-		if _, err := f.NewSheet("JMeter Config"); err != nil {
-			return fmt.Errorf("creating JMeter Config sheet: %w", err)
-		}
+	if err := createSheets(f, results.Plan.GlobalDefaults.Tool); err != nil {
+		return err
 	}
 
 	// Styles
@@ -52,29 +60,25 @@ func (w *XLSXWriter) Write(results engine.CalculationResults, dest string) error
 	_ = pctFmt
 	_ = numFmt2
 
-	// Sheet 1: Summary
 	if err := w.writeSummary(f, results, boldStyle, redBgStyle); err != nil {
 		return err
 	}
-
-	// Sheet 2: Steps Detail
 	if err := w.writeStepsDetail(f, results, boldStyle, redBgStyle); err != nil {
 		return err
 	}
-
-	// Sheet 3: Timeline
 	if err := w.writeTimeline(f, results, boldStyle); err != nil {
 		return err
 	}
-
-	// Sheet 4: Input Parameters
 	if err := w.writeInputParameters(f, results, boldStyle); err != nil {
 		return err
 	}
-
-	// Sheet 5: JMeter Config
 	if results.Plan.GlobalDefaults.Tool == config.ToolJMeter {
 		if err := w.writeJMeterConfig(f, results, boldStyle); err != nil {
+			return err
+		}
+	}
+	if results.Plan.GlobalDefaults.Tool == config.ToolLREPC {
+		if err := w.writeLREPCConfig(f, results, boldStyle); err != nil {
 			return err
 		}
 	}
@@ -84,6 +88,34 @@ func (w *XLSXWriter) Write(results engine.CalculationResults, dest string) error
 
 func setCellValue(f *excelize.File, sheet, cell string, value interface{}) error {
 	return f.SetCellValue(sheet, cell, value)
+}
+
+// writeRow writes a slice of values to the given row in a sheet.
+func writeRow(f *excelize.File, sheet string, row int, vals []interface{}) error {
+	for i, v := range vals {
+		cell, _ := excelize.CoordinatesToCellName(i+1, row)
+		if err := setCellValue(f, sheet, cell, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// backgroundThreads returns the thread count for a background scenario.
+func backgroundThreads(sr engine.ScenarioResult) int {
+	if len(sr.OptimizeResult.StepResults) > 0 {
+		return sr.OptimizeResult.StepResults[0].Threads
+	}
+	return 0
+}
+
+// threadsPerGenerator calculates threads per generator with minimum of 1 when threads > 0.
+func threadsPerGenerator(threads, generators int) int {
+	tpg := threads / generators
+	if tpg < 1 && threads > 0 {
+		tpg = 1
+	}
+	return tpg
 }
 
 func setCellStyle(f *excelize.File, sheet, cell string, styleID int) error {
@@ -377,55 +409,11 @@ func (w *XLSXWriter) writeInputParameters(f *excelize.File, results engine.Calcu
 	return autoWidth(f, sheet, headers)
 }
 
-func jmeterConfigRowValues(sr engine.ScenarioResult, generators int) []interface{} {
-	tgType := "ThreadGroup"
-	if sr.IsOpenModel {
-		tgType = "FreeFormArrivalsThreadGroup"
-	}
-
-	baseThreads := 0
-	for _, stepRes := range sr.OptimizeResult.StepResults {
-		if stepRes.Step.PercentOfTarget == 100 {
-			baseThreads = stepRes.Threads
-			break
-		}
-	}
-	if baseThreads == 0 && len(sr.OptimizeResult.StepResults) > 0 {
-		baseThreads = sr.OptimizeResult.StepResults[0].Threads
-	}
-
-	threadsPerGen := baseThreads / generators
-	if threadsPerGen < 1 && baseThreads > 0 {
-		threadsPerGen = 1
-	}
-
-	opsMinPerThread := sr.OptimizeResult.BestOpsPerMinPerThread
-
-	intensityUnit := ""
-	intensityVal := 0.0
-	if sr.IsOpenModel {
-		intensityUnit = "ops/s"
-		intensityVal = sr.SingleResult.OutputValue / float64(generators)
-		if sr.SingleResult.OutputUnit != "" {
-			intensityUnit = sr.SingleResult.OutputUnit
-		}
-	}
-
-	return []interface{}{
-		sr.Scenario.Name,
-		tgType,
-		threadsPerGen,
-		opsMinPerThread,
-		intensityUnit,
-		intensityVal,
-	}
-}
-
 func (w *XLSXWriter) writeJMeterConfig(f *excelize.File, results engine.CalculationResults, boldStyle int) error {
 	sheet := "JMeter Config"
 	headers := []string{
-		"Scenario Name", "Thread Group Type", "Threads (per generator)",
-		"CTT ops/min (per thread)", "Intensity unit", "Intensity value (per generator)",
+		"Scenario", "Step", "Step %", "Threads", "Threads Delta",
+		"Threads/Generator", "CTT ops/min/thread", "Rampup (s)", "Hold (s)",
 	}
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
@@ -444,14 +432,93 @@ func (w *XLSXWriter) writeJMeterConfig(f *excelize.File, results engine.Calculat
 
 	row := 2
 	for _, sr := range results.ScenarioResults {
-		vals := jmeterConfigRowValues(sr, generators)
-		for i, v := range vals {
-			cell, _ := excelize.CoordinatesToCellName(i+1, row)
-			if err := setCellValue(f, sheet, cell, v); err != nil {
+		if sr.IsOpenModel {
+			continue
+		}
+		if sr.IsBackground {
+			threads := backgroundThreads(sr)
+			vals := []interface{}{
+				sr.Scenario.Name, "BG", "-", threads, threads,
+				threadsPerGenerator(threads, generators), sr.OptimizeResult.BestOpsPerMinPerThread, 0, 0,
+			}
+			if err := writeRow(f, sheet, row, vals); err != nil {
 				return err
 			}
+			row++
+			continue
 		}
-		row++
+		prevThreads := 0
+		for _, stepRes := range sr.OptimizeResult.StepResults {
+			delta := stepRes.Threads - prevThreads
+			vals := []interface{}{
+				sr.Scenario.Name, stepRes.Step.StepNumber, stepRes.Step.PercentOfTarget,
+				stepRes.Threads, delta, threadsPerGenerator(stepRes.Threads, generators),
+				sr.OptimizeResult.BestOpsPerMinPerThread, stepRes.Step.RampupSec,
+				stepRes.Step.StabilitySec + stepRes.Step.ImpactSec,
+			}
+			if err := writeRow(f, sheet, row, vals); err != nil {
+				return err
+			}
+			prevThreads = stepRes.Threads
+			row++
+		}
+	}
+
+	return autoWidth(f, sheet, headers)
+}
+
+func (w *XLSXWriter) writeLREPCConfig(f *excelize.File, results engine.CalculationResults, boldStyle int) error {
+	sheet := "LRE PC Config"
+	headers := []string{
+		"Scenario", "Step", "Step %", "Vusers Total", "Vusers Delta",
+		"Batch Size", "Interval (s)", "Actual Rampup (s)", "Target Rampup (s)",
+		"Pacing (ms)", "Hold (s)",
+	}
+	for i, h := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		if err := setCellValue(f, sheet, cell, h); err != nil {
+			return err
+		}
+		if err := setCellStyle(f, sheet, cell, boldStyle); err != nil {
+			return err
+		}
+	}
+
+	row := 2
+	for _, sr := range results.ScenarioResults {
+		if sr.IsOpenModel {
+			continue
+		}
+		if sr.IsBackground {
+			threads := backgroundThreads(sr)
+			rampCfg := engine.CalculateRampUp(threads, 0)
+			vals := []interface{}{
+				sr.Scenario.Name, "BG", "-", threads, threads,
+				rampCfg.BatchSize, rampCfg.IntervalSec, rampCfg.ActualSec, 0,
+				sr.OptimizeResult.BestPacingMS, 0,
+			}
+			if err := writeRow(f, sheet, row, vals); err != nil {
+				return err
+			}
+			row++
+			continue
+		}
+		prevThreads := 0
+		for _, stepRes := range sr.OptimizeResult.StepResults {
+			delta := stepRes.Threads - prevThreads
+			rampCfg := engine.CalculateRampUp(delta, stepRes.Step.RampupSec)
+			vals := []interface{}{
+				sr.Scenario.Name, stepRes.Step.StepNumber, stepRes.Step.PercentOfTarget,
+				stepRes.Threads, delta, rampCfg.BatchSize, rampCfg.IntervalSec,
+				rampCfg.ActualSec, stepRes.Step.RampupSec, sr.OptimizeResult.BestPacingMS,
+				stepRes.Step.StabilitySec + stepRes.Step.ImpactSec,
+			}
+			if err := writeRow(f, sheet, row, vals); err != nil {
+				return err
+			}
+			prevThreads = stepRes.Threads
+			row++
+		}
 	}
 
 	return autoWidth(f, sheet, headers)

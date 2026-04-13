@@ -309,6 +309,101 @@ func TestXLSXWriter_JMeterConfigSheet_Absent_ForLRE(t *testing.T) {
 	}
 }
 
+func TestXLSXWriter_LREPCConfigSheet_Present(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "test.xlsx")
+	w := &XLSXWriter{}
+	results := testResults(config.ToolLREPC)
+
+	if err := w.Write(results, dest); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	f, err := excelize.OpenFile(dest)
+	if err != nil {
+		t.Fatalf("open xlsx: %v", err)
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows("LRE PC Config")
+	if err != nil {
+		t.Fatalf("LRE PC Config sheet should exist for lre_pc tool: %v", err)
+	}
+	// Header + 2 steps for Login + 1 row for Browse (background) = 4 rows
+	if len(rows) < 4 {
+		t.Fatalf("LRE PC Config: got %d rows, want at least 4", len(rows))
+	}
+	// Check headers
+	if rows[0][0] != "Scenario" {
+		t.Errorf("header[0] = %q, want Scenario", rows[0][0])
+	}
+	if rows[0][5] != "Batch Size" {
+		t.Errorf("header[5] = %q, want Batch Size", rows[0][5])
+	}
+	// First data row should be Login
+	if rows[1][0] != "Login" {
+		t.Errorf("row1[0] = %q, want Login", rows[1][0])
+	}
+}
+
+func TestXLSXWriter_LREPCConfigSheet_Absent_ForJMeter(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "test.xlsx")
+	w := &XLSXWriter{}
+	results := testResults(config.ToolJMeter)
+
+	if err := w.Write(results, dest); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	f, err := excelize.OpenFile(dest)
+	if err != nil {
+		t.Fatalf("open xlsx: %v", err)
+	}
+	defer f.Close()
+
+	_, err = f.GetRows("LRE PC Config")
+	if err == nil {
+		t.Error("LRE PC Config sheet should NOT exist for jmeter tool")
+	}
+}
+
+func TestXLSXWriter_JMeterConfigSheet_PerStepData(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "test.xlsx")
+	w := &XLSXWriter{}
+	results := testResults(config.ToolJMeter)
+
+	if err := w.Write(results, dest); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	f, err := excelize.OpenFile(dest)
+	if err != nil {
+		t.Fatalf("open xlsx: %v", err)
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows("JMeter Config")
+	if err != nil {
+		t.Fatalf("JMeter Config sheet should exist: %v", err)
+	}
+	// Header row should have per-step columns
+	if rows[0][0] != "Scenario" {
+		t.Errorf("header[0] = %q, want Scenario", rows[0][0])
+	}
+	if rows[0][1] != "Step" {
+		t.Errorf("header[1] = %q, want Step", rows[0][1])
+	}
+	if rows[0][4] != "Threads Delta" {
+		t.Errorf("header[4] = %q, want 'Threads Delta'", rows[0][4])
+	}
+	// Should have per-step rows: Login 2 steps + Browse 1 BG row = 3 data rows
+	if len(rows) < 4 {
+		t.Fatalf("JMeter Config: got %d rows, want at least 4", len(rows))
+	}
+}
+
 func TestXLSXWriter_ConditionalFormatting(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "test.xlsx")
