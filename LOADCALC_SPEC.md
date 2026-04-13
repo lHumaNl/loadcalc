@@ -52,7 +52,7 @@ TestPlan
 │   ├── spike_participate: bool            (default for all scenarios)
 │   └── generators_count: int              (JMeter only, default: 1)
 │
-├── Scenarios[]                            (list, not map — no unique key required)
+├── Scenarios{}                            (map keyed by name — names must be unique)
 │   ├── name: string                       (required; LRE PC: group name in test; JMeter: display name)
 │   ├── script_id: int                     (LRE PC only, required: script ID in Performance Center; ignored for JMeter)
 │   ├── target_intensity: float            (target value)
@@ -68,15 +68,15 @@ TestPlan
 │   └── spike_participate: bool            (override)
 │
 ├── TestProfile
-│   ├── type: stable | max_search | custom | spike
-│   ├── steps[]                            (for max_search/custom, per-step overrides)
+│   ├── type: stability | capacity | custom | spike
+│   ├── steps[]                            (for capacity/custom, per-step overrides)
 │   │   ├── percent_of_target: float
 │   │   ├── rampup_sec: int               (optional, override default)
 │   │   ├── impact_sec: int               (optional, override default)
 │   │   ├── stability_sec: int            (optional, override default)
 │   │   └── rampdown_sec: int             (optional, override default; 0 = no rampdown)
 │   │
-│   ├── [max_search specific — step generation]
+│   ├── [capacity specific — step generation]
 │   ├── start_percent: float               (e.g., 50%)
 │   ├── step_increment: float              (e.g., 10%)
 │   ├── num_steps: int
@@ -148,7 +148,7 @@ corrected_pacing_ms = (threads / target_rps) × 1000
 
 > **Note:** For multi-step profiles, Step 4 is replaced by the multi-step pacing optimizer (§2.2.5),
 > which finds optimal pacing across all steps simultaneously. The corrected pacing calculation
-> is only used for single-step profiles (e.g., `stable` with one step).
+> is only used for single-step profiles (e.g., `stability` with one step).
 
 **Step 5 — Verify deviation:**
 ```
@@ -280,21 +280,21 @@ global:
 # Scenarios can be defined here (inline) and/or loaded from external CSV/XLSX files.
 # When both are present, they are concatenated (YAML scenarios first, then external files).
 scenarios:
-  - name: "Main page"
+  Main page:
     script_id: 101                 # LRE PC only: script ID in Performance Center
     target_intensity: 720000
     intensity_unit: ops_h          # ops_h | ops_m | ops_s
     max_script_time_ms: 1100
     # All other fields use global defaults
 
-  - name: "Test page"
+  Test page:
     script_id: 102
     target_intensity: 1500
     intensity_unit: ops_m
     max_script_time_ms: 1000
     pacing_multiplier: 4.0         # override: use x4 for this scenario
 
-  - name: "404 page"
+  404 page:
     script_id: 103
     target_intensity: 90000
     intensity_unit: ops_h
@@ -302,7 +302,7 @@ scenarios:
     background: true               # background scenario
     background_percent: 100        # runs at 100% of target always
 
-  - name: "API health check"
+  API health check:
     target_intensity: 75
     intensity_unit: ops_h
     max_script_time_ms: 50
@@ -310,7 +310,7 @@ scenarios:
     spike_participate: false       # does not participate in spikes
 
 profile:
-  type: max_search                 # stable | max_search | custom | spike
+  type: capacity                 # stability | capacity | custom | spike
 
   # Default timing for all steps (overrideable per step)
   default_rampup_sec: 60
@@ -318,7 +318,7 @@ profile:
   default_stability_sec: 300
   default_rampdown_sec: 60         # 0 = no rampdown phase
 
-  # max_search specific — Mechanism A: uniform increment
+  # capacity specific — Mechanism A: uniform increment
   start_percent: 50
   step_increment: 25
   num_steps: 5
@@ -338,7 +338,7 @@ profile:
 # Example: 100%, 200%, 300%, 310%, 320%, 330%
 #
 # profile:
-#   type: max_search
+#   type: capacity
 #   start_percent: 100
 #   step_increment: 100
 #   num_steps: 3                   # → [100, 200, 300]
@@ -389,7 +389,7 @@ profile:
 # Background scenarios use their own background_percent independently.
 #
 # profile:
-#   type: stable
+#   type: stability
 #   percent: 100                   # can be any value, e.g., 25 for quarter-load test
 #   default_rampup_sec: 120
 #   default_impact_sec: 180
@@ -450,7 +450,7 @@ loadcalc template --format xlsx -o scenarios.xlsx        # XLSX scenario templat
 | `target_intensity` | > 0 | Error |
 | `generators_count` | >= 1 | Error |
 | `background_percent` | 0..100 | Error |
-| `step percent` | > 0 (for max_search/stable); any > 0 for custom | Error |
+| `step percent` | > 0 (for capacity/stability); any > 0 for custom | Error |
 | `name` | Non-empty for all scenarios | Error |
 | `script_id` for LRE PC | Required (> 0) when `tool: lre_pc` | Error |
 | `script_id` for JMeter | Ignored silently | — |
@@ -459,7 +459,7 @@ loadcalc template --format xlsx -o scenarios.xlsx        # XLSX scenario templat
 | Open model threshold | ops/sec < 0.01 → auto-switch to ops/min | Warning |
 | Deviation exceeded | Any scenario/step exceeds tolerance | Warning (highlighted in output) |
 | Zero threads | Calculated threads rounds to 0 | Error (minimum 1 thread) |
-| Step override mismatch | `steps[].percent` in max_search doesn't match any generated step | Warning (override ignored) |
+| Step override mismatch | `steps[].percent` in capacity doesn't match any generated step | Warning (override ignored) |
 | `generators_count` + LRE PC | `generators_count` specified when `tool: lre_pc` | Ignored silently |
 | `fine_tune.after_percent` | Must match last generated step from base range | Error |
 | Custom steps empty | `type: custom` with empty `steps[]` | Error |
@@ -594,8 +594,8 @@ loadcalc/
 │   │
 │   ├── profile/
 │   │   ├── builder.go               # Profile → step list builder interface
-│   │   ├── stable.go                # Stable profile step generation
-│   │   ├── max_search.go            # Max search step generation (incl. fine_tune)
+│   │   ├── stability.go                # Stable profile step generation
+│   │   ├── capacity.go            # Max search step generation (incl. fine_tune)
 │   │   ├── custom.go                # Custom profile — explicit step list
 │   │   ├── spike.go                 # Spike profile step + timeline generation
 │   │   └── timeline.go              # Timeline construction from steps
@@ -800,8 +800,8 @@ type OutputWriter interface {
 
 **TDD cycle:**
 1. Write tests: stable profile → 1 step at percent with correct timing
-2. Write tests: max_search 50%/25%/5 steps → [50, 75, 100, 125, 150] with timing
-3. Write tests: max_search with fine_tune → [100, 200, 300, 310, 320, 330]
+2. Write tests: capacity 50%/25%/5 steps → [50, 75, 100, 125, 150] with timing
+3. Write tests: capacity with fine_tune → [100, 200, 300, 310, 320, 330]
 4. Write tests: custom profile → arbitrary list [100, 200, 100, 300, 200] preserved as-is
 5. Write tests: custom profile with per-step timing overrides
 6. Write tests: spike with base 70%, start +50%, growth +10%, 3 spikes → correct sequence

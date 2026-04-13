@@ -9,26 +9,26 @@ global:
   generators_count: 3
 
 scenarios:
-  - name: "Login"
+  Login:
     script_id: 1
     target_intensity: 100
     intensity_unit: ops_s
     max_script_time_ms: 1000
 
-  - name: "Search"
+  Search:
     script_id: 2
     target_intensity: 200
     intensity_unit: ops_s
     max_script_time_ms: 500
 
-  - name: "Checkout"
+  Checkout:
     script_id: 3
     target_intensity: 50
     intensity_unit: ops_s
     max_script_time_ms: 2000
 
 profile:
-  type: max_search
+  type: capacity
   default_rampup_sec: 60
   default_impact_sec: 120
   default_stability_sec: 300

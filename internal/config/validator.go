@@ -32,6 +32,7 @@ func Validate(plan *TestPlan) []ValidationError {
 		errs = append(errs, validateScenario(s, plan.GlobalDefaults.Tool, i)...)
 	}
 
+	errs = append(errs, validateDuplicateNames(plan)...)
 	errs = append(errs, validateProfile(plan)...)
 
 	return errs
@@ -158,14 +159,34 @@ func validateScenarioConstraints(s Scenario, tool Tool, prefix string) []Validat
 	return errs
 }
 
+func validateDuplicateNames(plan *TestPlan) []ValidationError {
+	var errs []ValidationError
+	seen := make(map[string]int)
+	for i, s := range plan.Scenarios {
+		if s.Name == "" {
+			continue
+		}
+		if prev, ok := seen[s.Name]; ok {
+			errs = append(errs, ValidationError{
+				Field:    fmt.Sprintf("scenarios[%d].name", i),
+				Message:  fmt.Sprintf("duplicate scenario name %q (first seen at index %d)", s.Name, prev),
+				Severity: SeverityError,
+			})
+		} else {
+			seen[s.Name] = i
+		}
+	}
+	return errs
+}
+
 func validateProfile(plan *TestPlan) []ValidationError {
 	p := &plan.Profile
 
 	switch p.Type {
-	case ProfileStable:
-		return validateStableProfile(p)
-	case ProfileMaxSearch:
-		return validateMaxSearchProfile(p)
+	case ProfileStability:
+		return validateStabilityProfile(p)
+	case ProfileCapacity:
+		return validateCapacityProfile(p)
 	case ProfileCustom:
 		return validateCustomProfile(p)
 	case ProfileSpike:
@@ -174,19 +195,19 @@ func validateProfile(plan *TestPlan) []ValidationError {
 	return nil
 }
 
-func validateStableProfile(p *TestProfile) []ValidationError {
+func validateStabilityProfile(p *TestProfile) []ValidationError {
 	var errs []ValidationError
 	if p.Percent <= 0 {
 		errs = append(errs, ValidationError{
 			Field:    "profile.percent",
-			Message:  "must be > 0 for stable profile",
+			Message:  "must be > 0 for stability profile",
 			Severity: SeverityError,
 		})
 	}
 	return errs
 }
 
-func validateMaxSearchProfile(p *TestProfile) []ValidationError {
+func validateCapacityProfile(p *TestProfile) []ValidationError {
 	var errs []ValidationError
 	if p.StartPercent <= 0 {
 		errs = append(errs, ValidationError{
@@ -203,7 +224,7 @@ func validateMaxSearchProfile(p *TestProfile) []ValidationError {
 		})
 	}
 
-	generatedSteps := generateMaxSearchSteps(p)
+	generatedSteps := generateCapacitySteps(p)
 
 	for _, step := range p.Steps {
 		found := false
@@ -268,8 +289,8 @@ func validateSpikeProfile(p *TestProfile) []ValidationError {
 	return errs
 }
 
-// generateMaxSearchSteps generates the percent values for a max_search profile.
-func generateMaxSearchSteps(p *TestProfile) []float64 {
+// generateCapacitySteps generates the percent values for a capacity profile.
+func generateCapacitySteps(p *TestProfile) []float64 {
 	var steps []float64
 	for i := 0; i < p.NumSteps; i++ {
 		steps = append(steps, p.StartPercent+float64(i)*p.StepIncrement)

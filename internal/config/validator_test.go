@@ -34,7 +34,7 @@ func validPlan() *TestPlan {
 			},
 		},
 		Profile: TestProfile{
-			Type:    ProfileStable,
+			Type:    ProfileStability,
 			Percent: 100,
 		},
 	}
@@ -184,18 +184,18 @@ func TestValidate_OpenModelLREPC_Scenario(t *testing.T) {
 	}
 }
 
-func TestValidate_StablePercentPositive(t *testing.T) {
+func TestValidate_StabilityPercentPositive(t *testing.T) {
 	p := validPlan()
 	p.Profile.Percent = 0
 	errs := Validate(p)
 	if e := findError(errs, "profile.percent"); e == nil {
-		t.Error("expected error for stable percent <= 0")
+		t.Error("expected error for stability percent <= 0")
 	}
 }
 
-func TestValidate_MaxSearchStepIncrementPositive(t *testing.T) {
+func TestValidate_CapacityStepIncrementPositive(t *testing.T) {
 	p := validPlan()
-	p.Profile.Type = ProfileMaxSearch
+	p.Profile.Type = ProfileCapacity
 	p.Profile.StartPercent = 50
 	p.Profile.StepIncrement = 0
 	p.Profile.NumSteps = 3
@@ -227,7 +227,7 @@ func TestValidate_CustomStepPercentPositive(t *testing.T) {
 
 func TestValidate_StepOverrideMismatchWarning(t *testing.T) {
 	p := validPlan()
-	p.Profile.Type = ProfileMaxSearch
+	p.Profile.Type = ProfileCapacity
 	p.Profile.StartPercent = 50
 	p.Profile.StepIncrement = 25
 	p.Profile.NumSteps = 3 // generates 50, 75, 100
@@ -249,7 +249,7 @@ func TestValidate_StepOverrideMismatchWarning(t *testing.T) {
 
 func TestValidate_FineTuneAfterPercentMismatch(t *testing.T) {
 	p := validPlan()
-	p.Profile.Type = ProfileMaxSearch
+	p.Profile.Type = ProfileCapacity
 	p.Profile.StartPercent = 100
 	p.Profile.StepIncrement = 100
 	p.Profile.NumSteps = 3 // generates 100, 200, 300
@@ -266,7 +266,7 @@ func TestValidate_FineTuneAfterPercentMismatch(t *testing.T) {
 
 func TestValidate_FineTuneAfterPercentCorrect(t *testing.T) {
 	p := validPlan()
-	p.Profile.Type = ProfileMaxSearch
+	p.Profile.Type = ProfileCapacity
 	p.Profile.StartPercent = 100
 	p.Profile.StepIncrement = 100
 	p.Profile.NumSteps = 3

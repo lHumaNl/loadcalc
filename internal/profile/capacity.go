@@ -2,10 +2,10 @@ package profile
 
 import "loadcalc/internal/config"
 
-// MaxSearchProfileBuilder generates incrementing step sequences for capacity search.
-type MaxSearchProfileBuilder struct{}
+// CapacityProfileBuilder generates incrementing step sequences for capacity search.
+type CapacityProfileBuilder struct{}
 
-func (b *MaxSearchProfileBuilder) BuildSteps(profile config.TestProfile) ([]Step, error) {
+func (b *CapacityProfileBuilder) BuildSteps(profile config.TestProfile) ([]Step, error) {
 	// Generate percents from start + increment * N
 	var percents []float64
 	for i := 0; i < profile.NumSteps; i++ {

@@ -57,11 +57,11 @@ func TestScenarioOverridesNilByDefault(t *testing.T) {
 }
 
 func TestProfileTypeConstants(t *testing.T) {
-	if ProfileStable != "stable" {
-		t.Error("ProfileStable constant wrong")
+	if ProfileStability != "stability" {
+		t.Error("ProfileStability constant wrong")
 	}
-	if ProfileMaxSearch != "max_search" {
-		t.Error("ProfileMaxSearch constant wrong")
+	if ProfileCapacity != "capacity" {
+		t.Error("ProfileCapacity constant wrong")
 	}
 	if ProfileCustom != "custom" {
 		t.Error("ProfileCustom constant wrong")
@@ -96,13 +96,13 @@ func TestTestPlanStructure(t *testing.T) {
 			{Name: "Test"},
 		},
 		Profile: TestProfile{
-			Type: ProfileStable,
+			Type: ProfileStability,
 		},
 	}
 	if len(plan.Scenarios) != 1 {
 		t.Errorf("expected 1 scenario, got %d", len(plan.Scenarios))
 	}
-	if plan.Profile.Type != ProfileStable {
-		t.Errorf("profile type = %v, want stable", plan.Profile.Type)
+	if plan.Profile.Type != ProfileStability {
+		t.Errorf("profile type = %v, want stability", plan.Profile.Type)
 	}
 }

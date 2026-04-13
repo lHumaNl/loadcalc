@@ -6,8 +6,8 @@ import (
 	"loadcalc/internal/config"
 )
 
-func TestMaxSearch_Basic(t *testing.T) {
-	b := &MaxSearchProfileBuilder{}
+func TestCapacity_Basic(t *testing.T) {
+	b := &CapacityProfileBuilder{}
 	steps, err := b.BuildSteps(config.TestProfile{
 		StartPercent:        50,
 		StepIncrement:       25,
@@ -34,8 +34,8 @@ func TestMaxSearch_Basic(t *testing.T) {
 	}
 }
 
-func TestMaxSearch_WithFineTune(t *testing.T) {
-	b := &MaxSearchProfileBuilder{}
+func TestCapacity_WithFineTune(t *testing.T) {
+	b := &CapacityProfileBuilder{}
 	steps, err := b.BuildSteps(config.TestProfile{
 		StartPercent:  100,
 		StepIncrement: 100,
@@ -63,9 +63,9 @@ func TestMaxSearch_WithFineTune(t *testing.T) {
 	}
 }
 
-func TestMaxSearch_PerStepOverrides(t *testing.T) {
+func TestCapacity_PerStepOverrides(t *testing.T) {
 	rampup := 120
-	b := &MaxSearchProfileBuilder{}
+	b := &CapacityProfileBuilder{}
 	steps, _ := b.BuildSteps(config.TestProfile{
 		StartPercent:        50,
 		StepIncrement:       50,

@@ -9,12 +9,12 @@ global:
   generators_count: 2
 
 scenarios:
-  - name: "Main page"
+  Main page:
     target_intensity: 360000
     intensity_unit: ops_h
     max_script_time_ms: 1100
 
-  - name: "API endpoint"
+  API endpoint:
     target_intensity: 600
     intensity_unit: ops_m
     max_script_time_ms: 500

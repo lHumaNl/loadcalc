@@ -49,7 +49,7 @@ func testResults(tool config.Tool) engine.CalculationResults {
 				},
 			},
 			Profile: config.TestProfile{
-				Type:                config.ProfileMaxSearch,
+				Type:                config.ProfileCapacity,
 				DefaultRampupSec:    60,
 				DefaultImpactSec:    300,
 				DefaultStabilitySec: 120,

@@ -6,23 +6,23 @@ import (
 	"loadcalc/internal/config"
 )
 
-func TestNewProfileBuilder_Stable(t *testing.T) {
-	b, err := NewProfileBuilder(config.ProfileStable)
+func TestNewProfileBuilder_Stability(t *testing.T) {
+	b, err := NewProfileBuilder(config.ProfileStability)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := b.(*StableProfileBuilder); !ok {
-		t.Fatalf("expected *StableProfileBuilder, got %T", b)
+	if _, ok := b.(*StabilityProfileBuilder); !ok {
+		t.Fatalf("expected *StabilityProfileBuilder, got %T", b)
 	}
 }
 
-func TestNewProfileBuilder_MaxSearch(t *testing.T) {
-	b, err := NewProfileBuilder(config.ProfileMaxSearch)
+func TestNewProfileBuilder_Capacity(t *testing.T) {
+	b, err := NewProfileBuilder(config.ProfileCapacity)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := b.(*MaxSearchProfileBuilder); !ok {
-		t.Fatalf("expected *MaxSearchProfileBuilder, got %T", b)
+	if _, ok := b.(*CapacityProfileBuilder); !ok {
+		t.Fatalf("expected *CapacityProfileBuilder, got %T", b)
 	}
 }
 

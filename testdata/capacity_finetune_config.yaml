@@ -9,19 +9,19 @@ global:
   generators_count: 3
 
 scenarios:
-  - name: "Main page"
+  Main page:
     target_intensity: 720000
     intensity_unit: ops_h
     max_script_time_ms: 1100
 
-  - name: "Test page"
+  Test page:
     target_intensity: 1500
     intensity_unit: ops_m
     max_script_time_ms: 1000
     pacing_multiplier: 4.0
 
 profile:
-  type: max_search
+  type: capacity
   default_rampup_sec: 60
   default_impact_sec: 120
   default_stability_sec: 300

@@ -78,7 +78,7 @@ func TestProfileTypeChanged(t *testing.T) {
 	for _, c := range result.ProfileChanges {
 		if c.Field == "type" {
 			found = true
-			if c.OldValue != "max_search" || c.NewValue != "stable" {
+			if c.OldValue != "capacity" || c.NewValue != "stability" {
 				t.Errorf("type change: got %s -> %s", c.OldValue, c.NewValue)
 			}
 		}

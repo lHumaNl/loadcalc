@@ -5,14 +5,14 @@ global:
   load_model: open
 
 scenarios:
-  - name: "Test"
+  Test:
     script_id: 1
     target_intensity: 1000
     intensity_unit: ops_h
     max_script_time_ms: 500
 
 profile:
-  type: stable
+  type: stability
   percent: 100
   default_rampup_sec: 60
   default_impact_sec: 120

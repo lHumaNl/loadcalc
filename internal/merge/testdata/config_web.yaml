@@ -9,20 +9,20 @@ global:
   generators_count: 2
 
 scenarios:
-  - name: "Homepage"
+  Homepage:
     script_id: 1
     target_intensity: 500
     intensity_unit: ops_m
     max_script_time_ms: 1200
 
-  - name: "Search"
+  Search:
     script_id: 2
     target_intensity: 300
     intensity_unit: ops_m
     max_script_time_ms: 2000
 
 profile:
-  type: stable
+  type: stability
   default_rampup_sec: 60
   default_impact_sec: 120
   default_stability_sec: 300

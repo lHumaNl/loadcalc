@@ -85,13 +85,13 @@ global:
   generators_count: 3        # только JMeter
 
 scenarios:
-  - name: "Main page"
+  Main page:
     script_id: 101           # только LRE PC
     target_intensity: 720000
     intensity_unit: ops_h    # ops_h | ops_m | ops_s
     max_script_time_ms: 1100
 
-  - name: "Background load"
+  Background load:
     target_intensity: 90000
     intensity_unit: ops_h
     max_script_time_ms: 200
@@ -99,7 +99,7 @@ scenarios:
     background_percent: 100
 
 profile:
-  type: max_search           # stable | max_search | custom | spike
+  type: capacity            # stability | capacity | custom | spike
   start_percent: 50
   step_increment: 25
   num_steps: 5               # ступени: 50%, 75%, 100%, 125%, 150%
@@ -160,8 +160,8 @@ XLSX использует те же колонки на листе "Scenarios".
 
 | Профиль | Для чего |
 |---------|---------|
-| **stable** | Одна ступень на фиксированном % от цели |
-| **max_search** | Нарастающие ступени для поиска максимума (поддержка `fine_tune` для двух диапазонов инкремента) |
+| **stability** | Одна ступень на фиксированном % от цели |
+| **capacity** | Нарастающие ступени для поиска максимума (поддержка `fine_tune` для двух диапазонов инкремента) |
 | **custom** | Произвольный список ступеней в любом порядке, повторы допустимы |
 | **spike** | Базовая нагрузка + растущие спайки для тестирования устойчивости |
 

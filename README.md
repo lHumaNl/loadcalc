@@ -85,13 +85,13 @@ global:
   generators_count: 3        # JMeter only
 
 scenarios:
-  - name: "Main page"
+  Main page:
     script_id: 101           # LRE PC only
     target_intensity: 720000
     intensity_unit: ops_h    # ops_h | ops_m | ops_s
     max_script_time_ms: 1100
 
-  - name: "Background load"
+  Background load:
     target_intensity: 90000
     intensity_unit: ops_h
     max_script_time_ms: 200
@@ -99,7 +99,7 @@ scenarios:
     background_percent: 100
 
 profile:
-  type: max_search           # stable | max_search | custom | spike
+  type: capacity            # stability | capacity | custom | spike
   start_percent: 50
   step_increment: 25
   num_steps: 5               # steps: 50%, 75%, 100%, 125%, 150%
@@ -160,8 +160,8 @@ Empty cells use global defaults. Column order doesn't matter.
 
 | Profile | Use case |
 |---------|----------|
-| **stable** | Single step at fixed % of target |
-| **max_search** | Incrementing steps to find system max (supports `fine_tune` for two-range increments) |
+| **stability** | Single step at fixed % of target |
+| **capacity** | Incrementing steps to find system max (supports `fine_tune` for two-range increments) |
 | **custom** | Arbitrary step list in any order, repeats allowed |
 | **spike** | Base load + growing spikes to test resilience |
 

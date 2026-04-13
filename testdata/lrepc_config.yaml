@@ -8,20 +8,20 @@ global:
   spike_participate: true
 
 scenarios:
-  - name: "Main transaction"
+  Main transaction:
     script_id: 1
     target_intensity: 13044
     intensity_unit: ops_h
     max_script_time_ms: 550
 
-  - name: "Low intensity check"
+  Low intensity check:
     script_id: 2
     target_intensity: 75
     intensity_unit: ops_h
     max_script_time_ms: 50
 
 profile:
-  type: stable
+  type: stability
   percent: 100
   default_rampup_sec: 120
   default_impact_sec: 180

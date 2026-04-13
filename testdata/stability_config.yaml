@@ -9,13 +9,13 @@ global:
   generators_count: 1
 
 scenarios:
-  - name: "Main page"
+  Main page:
     target_intensity: 720000
     intensity_unit: ops_h
     max_script_time_ms: 1100
 
 profile:
-  type: stable
+  type: stability
   percent: 100
   default_rampup_sec: 120
   default_impact_sec: 180

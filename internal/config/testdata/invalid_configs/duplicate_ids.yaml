@@ -5,17 +5,17 @@ global:
   load_model: closed
 
 scenarios:
-  - name: "First"
+  First:
     target_intensity: 1000
     intensity_unit: ops_h
     max_script_time_ms: 500
-  - name: "Duplicate"
+  Duplicate:
     target_intensity: 2000
     intensity_unit: ops_h
     max_script_time_ms: 600
 
 profile:
-  type: stable
+  type: stability
   percent: 100
   default_rampup_sec: 60
   default_impact_sec: 120

@@ -82,8 +82,8 @@ func TestLoadFromYAML_ValidConfig(t *testing.T) {
 	}
 
 	// Profile
-	if plan.Profile.Type != ProfileMaxSearch {
-		t.Errorf("Profile.Type = %v, want max_search", plan.Profile.Type)
+	if plan.Profile.Type != ProfileCapacity {
+		t.Errorf("Profile.Type = %v, want capacity", plan.Profile.Type)
 	}
 	if plan.Profile.StartPercent != 50 {
 		t.Errorf("StartPercent = %v, want 50", plan.Profile.StartPercent)
@@ -127,12 +127,12 @@ func TestLoadFromYAML_DefaultVersion(t *testing.T) {
 global:
   tool: jmeter
 scenarios:
-  - name: "test"
+  test:
     target_intensity: 100
     intensity_unit: ops_h
     max_script_time_ms: 500
 profile:
-  type: stable
+  type: stability
   percent: 100
 `), 0o644)
 	plan, err := LoadFromYAML(tmp)
@@ -148,12 +148,12 @@ func TestLoadFromYAML_MissingGlobalFields(t *testing.T) {
 	tmp := filepath.Join(t.TempDir(), "minimal.yaml")
 	os.WriteFile(tmp, []byte(`
 scenarios:
-  - name: "test"
+  test:
     target_intensity: 100
     intensity_unit: ops_h
     max_script_time_ms: 500
 profile:
-  type: stable
+  type: stability
   percent: 100
 `), 0o644)
 	plan, err := LoadFromYAML(tmp)
@@ -289,12 +289,12 @@ global:
   tool: jmeter
   load_model: closed
 scenarios:
-  - name: "YAML Scenario"
+  YAML Scenario:
     target_intensity: 1000
     intensity_unit: ops_h
     max_script_time_ms: 500
 profile:
-  type: stable
+  type: stability
   percent: 100
 `), 0o644)
 

@@ -1,7 +1,13 @@
 // Package config handles loading, parsing, validating, and defaulting of YAML configuration.
 package config
 
-import "loadcalc/pkg/units"
+import (
+	"fmt"
+
+	"loadcalc/pkg/units"
+
+	"gopkg.in/yaml.v3"
+)
 
 // Tool represents the load testing tool.
 type Tool string
@@ -23,8 +29,8 @@ const (
 type ProfileType string
 
 const (
-	ProfileStable    ProfileType = "stable"
-	ProfileMaxSearch ProfileType = "max_search"
+	ProfileStability ProfileType = "stability"
+	ProfileCapacity  ProfileType = "capacity"
 	ProfileCustom    ProfileType = "custom"
 	ProfileSpike     ProfileType = "spike"
 )
@@ -33,9 +39,114 @@ const (
 type TestPlan struct {
 	Version        string         `yaml:"version"`
 	OutputFormat   string         `yaml:"output_format"`
-	Scenarios      []Scenario     `yaml:"scenarios"`
+	Scenarios      []Scenario     `yaml:"-"`
 	GlobalDefaults GlobalDefaults `yaml:"global"`
 	Profile        TestProfile    `yaml:"profile"`
+}
+
+// testPlanYAML is the on-disk YAML representation with scenarios as a map.
+type testPlanYAML struct {
+	Version        string              `yaml:"version"`
+	OutputFormat   string              `yaml:"output_format,omitempty"`
+	Scenarios      map[string]Scenario `yaml:"scenarios"`
+	GlobalDefaults GlobalDefaults      `yaml:"global"`
+	Profile        TestProfile         `yaml:"profile"`
+}
+
+// UnmarshalYAML reads scenarios from a YAML map keyed by scenario name.
+func (tp *TestPlan) UnmarshalYAML(value *yaml.Node) error {
+	var raw testPlanYAML
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+	tp.Version = raw.Version
+	tp.OutputFormat = raw.OutputFormat
+	tp.GlobalDefaults = raw.GlobalDefaults
+	tp.Profile = raw.Profile
+
+	// Convert map to slice, preserving YAML key order by iterating the node directly.
+	tp.Scenarios = nil
+	if raw.Scenarios != nil {
+		// Find the scenarios mapping node to preserve order.
+		var scenariosNode *yaml.Node
+		for i := 0; i < len(value.Content)-1; i += 2 {
+			if value.Content[i].Value == "scenarios" {
+				scenariosNode = value.Content[i+1]
+				break
+			}
+		}
+		if scenariosNode != nil && scenariosNode.Kind == yaml.MappingNode {
+			for i := 0; i < len(scenariosNode.Content)-1; i += 2 {
+				name := scenariosNode.Content[i].Value
+				s, ok := raw.Scenarios[name]
+				if !ok {
+					return fmt.Errorf("scenario %q not found in parsed map", name)
+				}
+				s.Name = name
+				tp.Scenarios = append(tp.Scenarios, s)
+			}
+		}
+	}
+	return nil
+}
+
+// MarshalYAML writes scenarios as a YAML map keyed by scenario name.
+func (tp TestPlan) MarshalYAML() (interface{}, error) {
+	raw := &testPlanYAML{
+		Version:        tp.Version,
+		OutputFormat:   tp.OutputFormat,
+		GlobalDefaults: tp.GlobalDefaults,
+		Profile:        tp.Profile,
+	}
+
+	// Use yaml.Node to preserve scenario order.
+	node := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	for _, s := range tp.Scenarios {
+		name := s.Name
+		s.Name = "" // don't include name inside the map value
+		keyNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: name}
+		valNode := &yaml.Node{}
+		if err := valNode.Encode(s); err != nil {
+			return nil, err
+		}
+		node.Content = append(node.Content, keyNode, valNode)
+	}
+
+	// Build full document as a mapping node.
+	doc := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+
+	addField := func(key string, val interface{}) error {
+		keyNode := &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: key}
+		valNode := &yaml.Node{}
+		if err := valNode.Encode(val); err != nil {
+			return err
+		}
+		doc.Content = append(doc.Content, keyNode, valNode)
+		return nil
+	}
+
+	if raw.Version != "" {
+		if err := addField("version", raw.Version); err != nil {
+			return nil, err
+		}
+	}
+	if raw.OutputFormat != "" {
+		if err := addField("output_format", raw.OutputFormat); err != nil {
+			return nil, err
+		}
+	}
+	if err := addField("global", raw.GlobalDefaults); err != nil {
+		return nil, err
+	}
+	doc.Content = append(doc.Content,
+		&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "scenarios"},
+		node,
+	)
+	if err := addField("profile", raw.Profile); err != nil {
+		return nil, err
+	}
+
+	return doc, nil
 }
 
 // GlobalDefaults holds default settings for all scenarios.
@@ -64,7 +175,7 @@ type Scenario struct {
 	PacingMultiplier   *float64            `yaml:"pacing_multiplier,omitempty"`
 	DeviationTolerance *float64            `yaml:"deviation_tolerance,omitempty"`
 	SpikeParticipate   *bool               `yaml:"spike_participate,omitempty"`
-	Name               string              `yaml:"name"`
+	Name               string              `yaml:"-"`
 	IntensityUnit      units.IntensityUnit `yaml:"intensity_unit"`
 	ScriptID           int                 `yaml:"script_id"`
 	TargetIntensity    float64             `yaml:"target_intensity"`
@@ -94,7 +205,7 @@ type TestProfile struct {
 	CooldownSec          int           `yaml:"cooldown_sec,omitempty"`
 }
 
-// FineTune defines a second range with different increment for max_search profiles.
+// FineTune defines a second range with different increment for capacity profiles.
 type FineTune struct {
 	AfterPercent  float64 `yaml:"after_percent"`
 	StepIncrement float64 `yaml:"step_increment"`

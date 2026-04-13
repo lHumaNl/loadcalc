@@ -164,7 +164,7 @@ func calculateScenario(scenario config.Scenario, steps []profile.Step, globals c
 // --- Full Pipeline Tests ---
 
 func TestFullPipeline_MaxSearch(t *testing.T) {
-	results, steps := runFullPipeline(t, filepath.Join(testdataDir(), "max_search_config.yaml"))
+	results, steps := runFullPipeline(t, filepath.Join(testdataDir(), "capacity_config.yaml"))
 
 	// 5 steps: 50, 75, 100, 125, 150
 	if len(steps) != 5 {
@@ -226,7 +226,7 @@ func TestFullPipeline_MaxSearch(t *testing.T) {
 }
 
 func TestFullPipeline_MaxSearchFineTune(t *testing.T) {
-	results, steps := runFullPipeline(t, filepath.Join(testdataDir(), "max_search_finetune_config.yaml"))
+	results, steps := runFullPipeline(t, filepath.Join(testdataDir(), "capacity_finetune_config.yaml"))
 
 	// 6 steps: 100, 200, 300, 310, 320, 330
 	if len(steps) != 6 {
@@ -333,7 +333,7 @@ func TestFullPipeline_Spike(t *testing.T) {
 }
 
 func TestFullPipeline_Stable(t *testing.T) {
-	results, steps := runFullPipeline(t, filepath.Join(testdataDir(), "stable_config.yaml"))
+	results, steps := runFullPipeline(t, filepath.Join(testdataDir(), "stability_config.yaml"))
 
 	// Single step at 100%
 	if len(steps) != 1 {
@@ -379,7 +379,7 @@ func TestFullPipeline_LREPC(t *testing.T) {
 	}
 	threads01 := uc01.OptimizeResult.StepResults[0].Threads
 	// With optimizer searching pacing range, threads may differ from simple ceil calculation.
-	// For single-step stable profile, expect threads in reasonable range (5-7).
+	// For single-step stability profile, expect threads in reasonable range (5-7).
 	if threads01 < 5 || threads01 > 7 {
 		t.Errorf("UC01: expected threads in range 5-7, got %d", threads01)
 	}
@@ -508,11 +508,11 @@ func TestProfileTypes_StepCounts(t *testing.T) {
 		configFile    string
 		expectedSteps int
 	}{
-		{"max_search_5steps", "max_search_config.yaml", 5},
-		{"max_search_finetune_6steps", "max_search_finetune_config.yaml", 6},
+		{"capacity_5steps", "capacity_config.yaml", 5},
+		{"capacity_finetune_6steps", "capacity_finetune_config.yaml", 6},
 		{"custom_5steps", "custom_config.yaml", 5},
 		{"spike_7steps", "spike_config.yaml", 7},
-		{"stable_1step", "stable_config.yaml", 1},
+		{"stability_1step", "stability_config.yaml", 1},
 		{"lrepc_1step", "lrepc_config.yaml", 1},
 	}
 
@@ -529,7 +529,7 @@ func TestProfileTypes_StepCounts(t *testing.T) {
 // --- Mixed Scenarios Tests ---
 
 func TestMixedScenarios_ClosedOpenBackground(t *testing.T) {
-	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "max_search_config.yaml"))
+	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "capacity_config.yaml"))
 
 	var hasClosed, hasOpen, hasBackground bool
 	for _, sr := range results.ScenarioResults {
@@ -602,7 +602,7 @@ func TestSpikeParticipation(t *testing.T) {
 // --- Edge Cases ---
 
 func TestEdgeCase_SingleScenario(t *testing.T) {
-	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "stable_config.yaml"))
+	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "stability_config.yaml"))
 
 	if len(results.ScenarioResults) != 1 {
 		t.Errorf("expected 1 scenario, got %d", len(results.ScenarioResults))
@@ -634,7 +634,7 @@ func TestEdgeCase_VeryLowIntensity(t *testing.T) {
 			},
 		},
 		Profile: config.TestProfile{
-			Type:                config.ProfileStable,
+			Type:                config.ProfileStability,
 			Percent:             100,
 			DefaultRampupSec:    60,
 			DefaultImpactSec:    60,
@@ -682,7 +682,7 @@ func TestEdgeCase_VeryHighIntensity(t *testing.T) {
 			},
 		},
 		Profile: config.TestProfile{
-			Type:                config.ProfileStable,
+			Type:                config.ProfileStability,
 			Percent:             100,
 			DefaultRampupSec:    60,
 			DefaultImpactSec:    60,
@@ -717,7 +717,7 @@ func TestEdgeCase_VeryHighIntensity(t *testing.T) {
 // --- XLSX Output E2E ---
 
 func TestXLSXOutput_FullPipeline(t *testing.T) {
-	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "max_search_config.yaml"))
+	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "capacity_config.yaml"))
 
 	tmpFile := filepath.Join(t.TempDir(), "output.xlsx")
 
@@ -853,7 +853,7 @@ func TestPerformance_ManyScenarios(t *testing.T) {
 // --- Timeline Verification ---
 
 func TestTimeline_Continuity(t *testing.T) {
-	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "max_search_config.yaml"))
+	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "capacity_config.yaml"))
 
 	if len(results.Timeline) == 0 {
 		t.Fatal("timeline is empty")
@@ -885,7 +885,7 @@ func TestTimeline_Continuity(t *testing.T) {
 
 func TestDeviation_WithinTolerance(t *testing.T) {
 	// Stable config with single step should have very low or zero deviation
-	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "stable_config.yaml"))
+	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "stability_config.yaml"))
 
 	for _, sr := range results.ScenarioResults {
 		for _, stepRes := range sr.OptimizeResult.StepResults {
@@ -939,11 +939,11 @@ func findScenario(results engine.CalculationResults, name string) *engine.Scenar
 
 func TestAllConfigs_Validate(t *testing.T) {
 	configs := []string{
-		"max_search_config.yaml",
-		"max_search_finetune_config.yaml",
+		"capacity_config.yaml",
+		"capacity_finetune_config.yaml",
 		"custom_config.yaml",
 		"spike_config.yaml",
-		"stable_config.yaml",
+		"stability_config.yaml",
 		"lrepc_config.yaml",
 		"valid_config.yaml",
 	}
@@ -973,7 +973,7 @@ func TestAllConfigs_Validate(t *testing.T) {
 // --- Full Pipeline → JMX Generate ---
 
 func TestFullPipeline_JMXGenerate(t *testing.T) {
-	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "max_search_config.yaml"))
+	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "capacity_config.yaml"))
 
 	data, err := integration.GenerateJMX(results)
 	if err != nil {
@@ -1028,7 +1028,7 @@ func TestFullPipeline_JMXGenerate(t *testing.T) {
 // --- Full Pipeline → JMX Inject ---
 
 func TestFullPipeline_JMXInject(t *testing.T) {
-	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "max_search_config.yaml"))
+	results, _ := runFullPipeline(t, filepath.Join(testdataDir(), "capacity_config.yaml"))
 
 	templatePath := filepath.Join("..", "integration", "testdata", "template.jmx")
 

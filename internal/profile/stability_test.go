@@ -6,8 +6,8 @@ import (
 	"loadcalc/internal/config"
 )
 
-func TestStable_100Percent(t *testing.T) {
-	b := &StableProfileBuilder{}
+func TestStability_100Percent(t *testing.T) {
+	b := &StabilityProfileBuilder{}
 	steps, err := b.BuildSteps(config.TestProfile{
 		Percent:             100,
 		DefaultRampupSec:    60,
@@ -30,8 +30,8 @@ func TestStable_100Percent(t *testing.T) {
 	}
 }
 
-func TestStable_25Percent(t *testing.T) {
-	b := &StableProfileBuilder{}
+func TestStability_25Percent(t *testing.T) {
+	b := &StabilityProfileBuilder{}
 	steps, _ := b.BuildSteps(config.TestProfile{
 		Percent:             25,
 		DefaultRampupSec:    30,
@@ -43,8 +43,8 @@ func TestStable_25Percent(t *testing.T) {
 	}
 }
 
-func TestStable_DefaultPercent(t *testing.T) {
-	b := &StableProfileBuilder{}
+func TestStability_DefaultPercent(t *testing.T) {
+	b := &StabilityProfileBuilder{}
 	steps, _ := b.BuildSteps(config.TestProfile{})
 	if steps[0].PercentOfTarget != 100 {
 		t.Errorf("default percent = %v, want 100", steps[0].PercentOfTarget)

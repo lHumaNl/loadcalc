@@ -19,7 +19,7 @@ func TestMergePlans_SingleConfig(t *testing.T) {
 		Scenarios: []config.Scenario{
 			{Name: "S1", ScriptID: 1},
 		},
-		Profile: config.TestProfile{Type: config.ProfileStable},
+		Profile: config.TestProfile{Type: config.ProfileStability},
 	}
 
 	result := Plans([]*config.TestPlan{plan})
@@ -47,7 +47,7 @@ func TestMergePlans_TwoConfigs_NoConflicts(t *testing.T) {
 			{Name: "S1"},
 			{Name: "S2"},
 		},
-		Profile: config.TestProfile{Type: config.ProfileStable},
+		Profile: config.TestProfile{Type: config.ProfileStability},
 	}
 	plan2 := &config.TestPlan{
 		Version: "1.0",
@@ -59,7 +59,7 @@ func TestMergePlans_TwoConfigs_NoConflicts(t *testing.T) {
 		Scenarios: []config.Scenario{
 			{Name: "S3"},
 		},
-		Profile: config.TestProfile{Type: config.ProfileStable},
+		Profile: config.TestProfile{Type: config.ProfileStability},
 	}
 
 	result := Plans([]*config.TestPlan{plan1, plan2})
@@ -83,7 +83,7 @@ func TestMergePlans_ConflictingGlobals(t *testing.T) {
 			GeneratorsCount:  2,
 		},
 		Scenarios: []config.Scenario{{Name: "S1"}},
-		Profile:   config.TestProfile{Type: config.ProfileStable},
+		Profile:   config.TestProfile{Type: config.ProfileStability},
 	}
 	plan2 := &config.TestPlan{
 		GlobalDefaults: config.GlobalDefaults{
@@ -92,7 +92,7 @@ func TestMergePlans_ConflictingGlobals(t *testing.T) {
 			GeneratorsCount:  5,
 		},
 		Scenarios: []config.Scenario{{Name: "S2"}},
-		Profile:   config.TestProfile{Type: config.ProfileStable},
+		Profile:   config.TestProfile{Type: config.ProfileStability},
 	}
 
 	result := Plans([]*config.TestPlan{plan1, plan2})
@@ -125,16 +125,16 @@ func TestMergePlans_ConflictingGlobals(t *testing.T) {
 func TestMergePlans_ConflictingProfileType(t *testing.T) {
 	plan1 := &config.TestPlan{
 		Scenarios: []config.Scenario{{Name: "S1"}},
-		Profile:   config.TestProfile{Type: config.ProfileStable},
+		Profile:   config.TestProfile{Type: config.ProfileStability},
 	}
 	plan2 := &config.TestPlan{
 		Scenarios: []config.Scenario{{Name: "S2"}},
-		Profile:   config.TestProfile{Type: config.ProfileMaxSearch},
+		Profile:   config.TestProfile{Type: config.ProfileCapacity},
 	}
 
 	result := Plans([]*config.TestPlan{plan1, plan2})
 
-	if result.Plan.Profile.Type != config.ProfileStable {
+	if result.Plan.Profile.Type != config.ProfileStability {
 		t.Errorf("expected first plan's profile type, got %s", result.Plan.Profile.Type)
 	}
 
@@ -187,7 +187,7 @@ func TestMergePlans_FromTestdataFiles(t *testing.T) {
 	if result.Plan.GlobalDefaults.PacingMultiplier != 3.0 {
 		t.Errorf("expected pacing_multiplier from first (3.0), got %f", result.Plan.GlobalDefaults.PacingMultiplier)
 	}
-	// Profile type conflict: stable vs max_search
+	// Profile type conflict: stability vs capacity
 	foundProfileWarn := false
 	foundPacingWarn := false
 	for _, w := range result.Warnings {
@@ -217,7 +217,7 @@ func TestWriteMergedYAML(t *testing.T) {
 		Scenarios: []config.Scenario{
 			{Name: "S1", ScriptID: 1},
 		},
-		Profile: config.TestProfile{Type: config.ProfileStable, Percent: 100},
+		Profile: config.TestProfile{Type: config.ProfileStability, Percent: 100},
 	}
 
 	dir := t.TempDir()
@@ -267,12 +267,12 @@ global:
   load_model: closed
   pacing_multiplier: 3.0
 scenarios:
-  - name: "DirS1"
+  DirS1:
     target_intensity: 100
     intensity_unit: ops_m
     max_script_time_ms: 500
 profile:
-  type: stable
+  type: stability
   percent: 100
 `
 	cfg2 := `version: "1.0"
@@ -281,12 +281,12 @@ global:
   load_model: closed
   pacing_multiplier: 3.0
 scenarios:
-  - name: "DirS2"
+  DirS2:
     target_intensity: 200
     intensity_unit: ops_m
     max_script_time_ms: 600
 profile:
-  type: stable
+  type: stability
   percent: 100
 `
 	os.WriteFile(filepath.Join(dir, "a_config.yaml"), []byte(cfg1), 0o644)

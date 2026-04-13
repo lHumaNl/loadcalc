@@ -265,20 +265,20 @@ global:
   generators_count: 3
 
 scenarios:
-  - name: "Main page"
+  Main page:
     script_id: 1                    # required for lre_pc, ignored for jmeter
     target_intensity: 720000
     intensity_unit: ops_h
     max_script_time_ms: 1100
 
-  - name: "Test page"
+  Test page:
     script_id: 2
     target_intensity: 1500
     intensity_unit: ops_m
     max_script_time_ms: 1000
     pacing_multiplier: 4.0
 
-  - name: "404 page"
+  404 page:
     script_id: 3
     target_intensity: 90000
     intensity_unit: ops_h
@@ -286,7 +286,7 @@ scenarios:
     background: true
     background_percent: 100
 
-  - name: "API health check"
+  API health check:
     script_id: 4
     target_intensity: 75
     intensity_unit: ops_h
@@ -295,7 +295,7 @@ scenarios:
     spike_participate: false
 
 profile:
-  type: max_search
+  type: capacity
   default_rampup_sec: 60
   default_impact_sec: 120
   default_stability_sec: 300

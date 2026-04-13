@@ -34,10 +34,10 @@ type Builder interface {
 // NewProfileBuilder returns the appropriate builder for the given profile type.
 func NewProfileBuilder(profileType config.ProfileType) (Builder, error) {
 	switch profileType {
-	case config.ProfileStable:
-		return &StableProfileBuilder{}, nil
-	case config.ProfileMaxSearch:
-		return &MaxSearchProfileBuilder{}, nil
+	case config.ProfileStability:
+		return &StabilityProfileBuilder{}, nil
+	case config.ProfileCapacity:
+		return &CapacityProfileBuilder{}, nil
 	case config.ProfileCustom:
 		return &CustomProfileBuilder{}, nil
 	case config.ProfileSpike:
