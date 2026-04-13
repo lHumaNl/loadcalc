@@ -441,17 +441,30 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 	sb.WriteString("\n\n")
 
 	if tool == config.ToolJMeter {
-		fmt.Fprintf(&sb, "  %-4s %4s %8s %6s %12s %8s\n", "Step", "%", "Threads", "/Gen", "Actual "+unitLabel, "Dev")
+		showPerGen := generators > 1
+		if showPerGen {
+			fmt.Fprintf(&sb, "  %-4s %4s %8s %6s %12s %8s\n", "Step", "%", "Threads", "/Gen", "Actual "+unitLabel, "Dev")
+		} else {
+			fmt.Fprintf(&sb, "  %-4s %4s %8s %12s %8s\n", "Step", "%", "Threads", "Actual "+unitLabel, "Dev")
+		}
 		for _, sr := range optResult.StepResults {
 			actualDisplay := units.ConvertFromOpsPerSec(sr.ActualRPS*float64(generators), scenario.IntensityUnit)
 			threadsTotal := sr.Threads * generators
 			level := styles.ClassifyDeviation(sr.DeviationPct, *scenario.DeviationTolerance)
 			sym := styles.DeviationSymbol(level)
-			fmt.Fprintf(&sb, "  %3d  %3.0f%%   %6d  %5d  %11s  %5.2f%% %s\n",
-				sr.Step.StepNumber, sr.Step.PercentOfTarget,
-				threadsTotal, sr.Threads,
-				quickFormatNumber(actualDisplay),
-				sr.DeviationPct, sym)
+			if showPerGen {
+				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %6d  %5d  %11s  %5.2f%% %s\n",
+					sr.Step.StepNumber, sr.Step.PercentOfTarget,
+					threadsTotal, sr.Threads,
+					quickFormatNumber(actualDisplay),
+					sr.DeviationPct, sym)
+			} else {
+				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %6d  %11s  %5.2f%% %s\n",
+					sr.Step.StepNumber, sr.Step.PercentOfTarget,
+					threadsTotal,
+					quickFormatNumber(actualDisplay),
+					sr.DeviationPct, sym)
+			}
 		}
 	} else {
 		fmt.Fprintf(&sb, "  %-4s %4s %7s %6s %6s %8s %7s %8s\n", "Step", "%", "Vusers", "Delta", "Batch", "Every(s)", "Rampup", "Dev")
@@ -473,23 +486,41 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 	m.resultText = sb.String()
 }
 
-func (m *QuickModel) calcMultiStepOpen(scenario config.Scenario, stepList []profile.Step, generators int, unitLabel string) {
+func (m *QuickModel) calcMultiStepOpen(scenario config.Scenario, stepList []profile.Step, generators int, _ string) {
 	baseRPS, err := units.NormalizeToOpsPerSec(scenario.TargetIntensity, scenario.IntensityUnit)
 	if err != nil {
 		m.err = err.Error()
 		return
 	}
 
+	showPerGen := generators > 1
 	var sb strings.Builder
 	sb.WriteString("Open model — rate per step\n\n")
-	fmt.Fprintf(&sb, "  %-4s %4s %12s %12s\n", "Step", "%", "Rate "+unitLabel, "Per Generator")
+
+	if showPerGen {
+		fmt.Fprintf(&sb, "  %-4s %4s %12s %10s %10s %12s %10s %10s\n",
+			"Step", "%", "ops/h", "ops/m", "ops/s", "ops/h /gen", "ops/m /gen", "ops/s /gen")
+	} else {
+		fmt.Fprintf(&sb, "  %-4s %4s %12s %10s %10s\n", "Step", "%", "ops/h", "ops/m", "ops/s")
+	}
+
 	for _, step := range stepList {
 		stepRPS := baseRPS * step.PercentOfTarget / 100
-		totalDisplay := units.ConvertFromOpsPerSec(stepRPS, scenario.IntensityUnit)
-		perGen := totalDisplay / float64(generators)
-		fmt.Fprintf(&sb, "  %3d  %3.0f%%  %11s  %11s\n",
-			step.StepNumber, step.PercentOfTarget,
-			quickFormatNumber(totalDisplay), quickFormatNumber(perGen))
+		oph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(stepRPS, units.OpsPerHour)*1000) / 1000)
+		opm := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(stepRPS, units.OpsPerMinute)*1000) / 1000)
+		ops := quickFormatNumber(math.Round(stepRPS*1000) / 1000)
+
+		if showPerGen {
+			genRPS := stepRPS / float64(generators)
+			goph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(genRPS, units.OpsPerHour)*1000) / 1000)
+			gopm := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(genRPS, units.OpsPerMinute)*1000) / 1000)
+			gops := quickFormatNumber(math.Round(genRPS*1000) / 1000)
+			fmt.Fprintf(&sb, "  %3d  %3.0f%%  %11s  %9s  %9s  %11s  %9s  %9s\n",
+				step.StepNumber, step.PercentOfTarget, oph, opm, ops, goph, gopm, gops)
+		} else {
+			fmt.Fprintf(&sb, "  %3d  %3.0f%%  %11s  %9s  %9s\n",
+				step.StepNumber, step.PercentOfTarget, oph, opm, ops)
+		}
 	}
 	m.resultText = sb.String()
 }

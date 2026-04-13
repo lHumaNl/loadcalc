@@ -166,10 +166,11 @@ func runQuickMultiStep(cmd *cobra.Command, scenario config.Scenario, tool config
 	cmd.Println(fmt.Sprintf("  Tool:       %s", toolLabel))
 
 	if loadModel == config.LoadModelOpen {
-		return fmt.Errorf("multi-step mode is not supported for open load model")
+		printOpenModelStepTable(cmd, scenario, stepList, generators)
+		return nil
 	}
 
-	// Run optimizer
+	// Run optimizer.
 	opt := &engine.Optimizer{MultiplierRangeDown: rangeDown, MultiplierRangeUp: rangeUp}
 	optResult, err := opt.Optimize(scenario, stepList, tool, loadModel, generators)
 	if err != nil {
@@ -191,23 +192,63 @@ func runQuickMultiStep(cmd *cobra.Command, scenario config.Scenario, tool config
 	return nil
 }
 
+func printOpenModelStepTable(cmd *cobra.Command, scenario config.Scenario, stepList []profile.Step, generators int) {
+	baseRPS, _ := units.NormalizeToOpsPerSec(scenario.TargetIntensity, scenario.IntensityUnit)
+	showPerGen := generators > 1
+
+	if showPerGen {
+		cmd.Println(fmt.Sprintf("  %-4s %4s %12s %10s %10s %12s %10s %10s",
+			"Step", "%", "ops/h", "ops/m", "ops/s", "ops/h /gen", "ops/m /gen", "ops/s /gen"))
+	} else {
+		cmd.Println(fmt.Sprintf("  %-4s %4s %12s %10s %10s", "Step", "%", "ops/h", "ops/m", "ops/s"))
+	}
+	cmd.Println("  " + strings.Repeat("\u2500", 60))
+
+	for _, step := range stepList {
+		stepRPS := baseRPS * step.PercentOfTarget / 100
+		oph := formatNumber(math.Round(units.ConvertFromOpsPerSec(stepRPS, units.OpsPerHour)*1000) / 1000)
+		opm := formatNumber(math.Round(units.ConvertFromOpsPerSec(stepRPS, units.OpsPerMinute)*1000) / 1000)
+		ops := formatNumber(math.Round(stepRPS*1000) / 1000)
+
+		if showPerGen {
+			genRPS := stepRPS / float64(generators)
+			goph := formatNumber(math.Round(units.ConvertFromOpsPerSec(genRPS, units.OpsPerHour)*1000) / 1000)
+			gopm := formatNumber(math.Round(units.ConvertFromOpsPerSec(genRPS, units.OpsPerMinute)*1000) / 1000)
+			gops := formatNumber(math.Round(genRPS*1000) / 1000)
+			cmd.Println(fmt.Sprintf("  %3d  %3.0f%%  %11s  %9s  %9s  %11s  %9s  %9s",
+				step.StepNumber, step.PercentOfTarget, oph, opm, ops, goph, gopm, gops))
+		} else {
+			cmd.Println(fmt.Sprintf("  %3d  %3.0f%%  %11s  %9s  %9s",
+				step.StepNumber, step.PercentOfTarget, oph, opm, ops))
+		}
+	}
+}
+
 func printJMeterStepTable(cmd *cobra.Command, opt engine.OptimizeResult, intensityUnit units.IntensityUnit, generators int) {
 	unitLabel := formatUnitLabel(intensityUnit)
-	cmd.Println(fmt.Sprintf("  Step   %%    Threads  Threads/Gen  Actual %s   Dev %%", unitLabel))
+	showPerGen := generators > 1
+	if showPerGen {
+		cmd.Println(fmt.Sprintf("  Step   %%    Threads  Threads/Gen  Actual %s   Dev %%", unitLabel))
+	} else {
+		cmd.Println(fmt.Sprintf("  Step   %%    Threads  Actual %s   Dev %%", unitLabel))
+	}
 	cmd.Println("  " + strings.Repeat("\u2500", 59))
 
 	for _, sr := range opt.StepResults {
 		actualDisplay := units.ConvertFromOpsPerSec(sr.ActualRPS*float64(generators), intensityUnit)
 		threadsTotal := sr.Threads * generators
-		cmd.Println(fmt.Sprintf("  %3d  %3.0f%%   %6d    %6d     %11s   %5.2f%%  %s",
-			sr.Step.StepNumber,
-			sr.Step.PercentOfTarget,
-			threadsTotal,
-			sr.Threads,
-			formatNumber(actualDisplay),
-			sr.DeviationPct,
-			deviationSymbol(sr.DeviationPct, 2.5),
-		))
+		sym := deviationSymbol(sr.DeviationPct, 2.5)
+		if showPerGen {
+			cmd.Println(fmt.Sprintf("  %3d  %3.0f%%   %6d    %6d     %11s   %5.2f%%  %s",
+				sr.Step.StepNumber, sr.Step.PercentOfTarget,
+				threadsTotal, sr.Threads, formatNumber(actualDisplay),
+				sr.DeviationPct, sym))
+		} else {
+			cmd.Println(fmt.Sprintf("  %3d  %3.0f%%   %6d  %11s   %5.2f%%  %s",
+				sr.Step.StepNumber, sr.Step.PercentOfTarget,
+				threadsTotal, formatNumber(actualDisplay),
+				sr.DeviationPct, sym))
+		}
 	}
 }
 
