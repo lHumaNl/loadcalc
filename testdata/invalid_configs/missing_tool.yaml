@@ -1,0 +1,18 @@
+version: "1.0"
+
+global:
+  load_model: closed
+
+scenarios:
+  - name: "Test"
+    target_intensity: 100
+    intensity_unit: ops_s
+    max_script_time_ms: 1000
+
+profile:
+  type: stable
+  percent: 100
+  default_rampup_sec: 60
+  default_impact_sec: 120
+  default_stability_sec: 300
+  default_rampdown_sec: 60

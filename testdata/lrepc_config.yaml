@@ -1,0 +1,29 @@
+version: "1.0"
+
+global:
+  tool: lre_pc
+  load_model: closed
+  pacing_multiplier: 3.0
+  deviation_tolerance: 2.5
+  spike_participate: true
+
+scenarios:
+  - name: "Main transaction"
+    script_id: 1
+    target_intensity: 13044
+    intensity_unit: ops_h
+    max_script_time_ms: 550
+
+  - name: "Low intensity check"
+    script_id: 2
+    target_intensity: 75
+    intensity_unit: ops_h
+    max_script_time_ms: 50
+
+profile:
+  type: stable
+  percent: 100
+  default_rampup_sec: 120
+  default_impact_sec: 180
+  default_stability_sec: 1800
+  default_rampdown_sec: 120

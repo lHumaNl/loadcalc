@@ -1,0 +1,211 @@
+version: "2"
+run:
+  go: "1.26"
+  modules-download-mode: readonly
+  tests: true
+  allow-parallel-runners: true
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+linters:
+  enable:
+    - bodyclose
+    - contextcheck
+    - dupl
+    - durationcheck
+    - errorlint
+    - exhaustive
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gosec
+    - makezero
+    - misspell
+    - nakedret
+    - nilerr
+    - nilnil
+    - noctx
+    - prealloc
+    - predeclared
+    - revive
+    - unconvert
+    - unparam
+    - wastedassign
+  disable:
+    - cyclop
+    - depguard
+    - dogsled
+    - dupword
+    - err113
+    - errname
+    - exhaustruct
+    - forbidigo
+    - forcetypeassert
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - godox
+    - gomoddirectives
+    - gomodguard
+    - inamedparam
+    - interfacebloat
+    - ireturn
+    - lll
+    - maintidx
+    - mnd
+    - musttag
+    - nlreturn
+    - nonamedreturns
+    - paralleltest
+    - promlinter
+    - reassign
+    - tagalign
+    - testifylint
+    - testpackage
+    - thelper
+    - tparallel
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - zerologlint
+  settings:
+    dupl:
+      threshold: 100
+    errcheck:
+      disable-default-exclusions: false
+      check-type-assertions: true
+      check-blank: false
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+    exhaustive:
+      default-signifies-exhaustive: false
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+    gocritic:
+      disabled-checks:
+        - hugeParam
+        - rangeValCopy
+        - whyNoLint
+        - commentedOutCode
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    gocyclo:
+      min-complexity: 15
+    gosec:
+      excludes:
+        - G104
+        - G307
+      config:
+        G301: false
+        G302: false
+    govet:
+      enable-all: true
+    lll:
+      line-length: 140
+    makezero:
+      always: false
+    misspell:
+      locale: US
+      ignore-rules:
+        - someword
+    nakedret:
+      max-func-lines: 30
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+    staticcheck:
+      checks:
+        - all
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - dupl
+          - errcheck
+          - funlen
+          - goconst
+          - gocyclo
+          - gosec
+          - govet
+          - noctx
+          - nilnil
+          - prealloc
+          - revive
+          - staticcheck
+          - unparam
+        path: _test\.go
+      - linters:
+          - lll
+        path: cmd/
+        text: .*
+      - path: (.+)\.go$
+        text: should have comment
+      - path: (.+)\.go$
+        text: comment on exported
+      - path: (.+)\.go$
+        text: comment to be ignored
+      - linters:
+          - goconst
+        path: (.+)_test\.go
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - loadcalc
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

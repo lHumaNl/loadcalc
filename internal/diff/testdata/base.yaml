@@ -1,0 +1,38 @@
+version: "1.0"
+
+global:
+  tool: jmeter
+  load_model: closed
+  pacing_multiplier: 3.0
+  deviation_tolerance: 2.5
+  spike_participate: true
+  generators_count: 3
+
+scenarios:
+  - name: "Login"
+    script_id: 1
+    target_intensity: 100
+    intensity_unit: ops_s
+    max_script_time_ms: 1000
+
+  - name: "Search"
+    script_id: 2
+    target_intensity: 200
+    intensity_unit: ops_s
+    max_script_time_ms: 500
+
+  - name: "Checkout"
+    script_id: 3
+    target_intensity: 50
+    intensity_unit: ops_s
+    max_script_time_ms: 2000
+
+profile:
+  type: max_search
+  default_rampup_sec: 60
+  default_impact_sec: 120
+  default_stability_sec: 300
+  default_rampdown_sec: 60
+  start_percent: 50
+  step_increment: 25
+  num_steps: 5

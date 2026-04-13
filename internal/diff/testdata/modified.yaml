@@ -1,0 +1,36 @@
+version: "1.0"
+
+global:
+  tool: lre_pc
+  load_model: closed
+  pacing_multiplier: 4.0
+  deviation_tolerance: 2.5
+  spike_participate: true
+  generators_count: 5
+
+scenarios:
+  - name: "Login"
+    script_id: 1
+    target_intensity: 150
+    intensity_unit: ops_s
+    max_script_time_ms: 1200
+
+  - name: "Search"
+    script_id: 2
+    target_intensity: 200
+    intensity_unit: ops_s
+    max_script_time_ms: 500
+
+  - name: "Browse"
+    script_id: 4
+    target_intensity: 300
+    intensity_unit: ops_s
+    max_script_time_ms: 800
+
+profile:
+  type: stable
+  default_rampup_sec: 60
+  default_impact_sec: 120
+  default_stability_sec: 600
+  default_rampdown_sec: 60
+  percent: 100

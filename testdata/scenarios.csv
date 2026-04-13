@@ -1,0 +1,3 @@
+name;script_id;target_intensity;intensity_unit;max_script_time_ms;background;background_percent;load_model;pacing_multiplier;deviation_tolerance;spike_participate
+CSV Scenario 1;10;5000;ops_h;800;false;0;;;;
+CSV Scenario 2;11;300;ops_m;1200;false;0;;4.0;;

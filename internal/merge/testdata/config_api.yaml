@@ -1,0 +1,32 @@
+version: "1.0"
+
+global:
+  tool: jmeter
+  load_model: closed
+  pacing_multiplier: 4.0
+  deviation_tolerance: 2.5
+  spike_participate: true
+  generators_count: 2
+
+scenarios:
+  - name: "API Login"
+    script_id: 10
+    target_intensity: 100
+    intensity_unit: ops_m
+    max_script_time_ms: 800
+
+  - name: "API Orders"
+    script_id: 11
+    target_intensity: 200
+    intensity_unit: ops_m
+    max_script_time_ms: 1500
+
+profile:
+  type: max_search
+  default_rampup_sec: 60
+  default_impact_sec: 120
+  default_stability_sec: 300
+  default_rampdown_sec: 60
+  start_percent: 50
+  step_increment: 25
+  num_steps: 3

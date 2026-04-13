@@ -1,0 +1,23 @@
+version: "1.0"
+
+global:
+  tool: jmeter
+  load_model: closed
+  pacing_multiplier: 3.0
+  deviation_tolerance: 2.5
+  spike_participate: true
+  generators_count: 1
+
+scenarios:
+  - name: "Main page"
+    target_intensity: 720000
+    intensity_unit: ops_h
+    max_script_time_ms: 1100
+
+profile:
+  type: stable
+  percent: 100
+  default_rampup_sec: 120
+  default_impact_sec: 180
+  default_stability_sec: 1800
+  default_rampdown_sec: 120
