@@ -33,7 +33,7 @@ jobs:
           version: v2.11
 
   # ---------------------------------------------------------------------------
-  # Test (ubuntu-latest only, Go 1.25 + 1.26)
+  # Test (ubuntu-latest only)
   # ---------------------------------------------------------------------------
   test:
     name: Test (Go ${{ matrix.go }})
@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.25', '1.26']
+        go: ['1.26']
 
     steps:
       - uses: actions/checkout@v4

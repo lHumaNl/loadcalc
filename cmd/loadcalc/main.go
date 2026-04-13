@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version is set via ldflags at build time: -X main.Version=<tag>
+// Version is set via ldflags at build time: -X main.Version=tag.
 var Version = "dev"
 
 func main() {
