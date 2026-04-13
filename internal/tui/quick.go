@@ -109,15 +109,34 @@ func (m QuickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m QuickModel) isFieldVisible(idx int) bool {
+	if m.fields[idx].label == labelGenerators && m.tool == "lre_pc" {
+		return false
+	}
+	return true
+}
+
+func (m QuickModel) nextVisibleField(dir int) int {
+	n := len(m.fields)
+	idx := m.activeField
+	for range n {
+		idx = (idx + dir + n) % n
+		if m.isFieldVisible(idx) {
+			return idx
+		}
+	}
+	return m.activeField
+}
+
 func (m QuickModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.Type { //nolint:exhaustive // only relevant keys handled
 	case tea.KeyCtrlC:
 		return m, tea.Quit
 	case tea.KeyTab, tea.KeyDown:
-		m.activeField = (m.activeField + 1) % len(m.fields)
+		m.activeField = m.nextVisibleField(1)
 		return m, nil
 	case tea.KeyShiftTab, tea.KeyUp:
-		m.activeField = (m.activeField - 1 + len(m.fields)) % len(m.fields)
+		m.activeField = m.nextVisibleField(-1)
 		return m, nil
 	case tea.KeyEnter:
 		m.recalculate()
@@ -151,6 +170,10 @@ func (m QuickModel) handleCycleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			idx = (idx + 1) % len(f.options)
 		}
 		m.setFieldValue(f.label, f.options[idx])
+		// If tool changed and current active field became hidden, move to next visible.
+		if !m.isFieldVisible(m.activeField) {
+			m.activeField = m.nextVisibleField(1)
+		}
 		m.recalculate()
 		return m, nil
 	default:
