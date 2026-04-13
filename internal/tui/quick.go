@@ -116,6 +116,11 @@ func (m QuickModel) isFieldVisible(idx int) bool {
 			return false
 		}
 	}
+	if m.model == "open" {
+		if label == labelMultiplier || label == labelRangeDown || label == labelRangeUp {
+			return false
+		}
+	}
 	return true
 }
 
@@ -443,42 +448,45 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 	if tool == config.ToolJMeter {
 		showPerGen := generators > 1
 		if showPerGen {
-			fmt.Fprintf(&sb, "  %-4s %4s %8s %6s %12s %8s\n", "Step", "%", "Threads", "/Gen", "Actual "+unitLabel, "Dev")
+			fmt.Fprintf(&sb, "  %-4s %4s %7s %5s %10s %9s %9s %7s\n", "Step", "%", "Threads", "/Gen", "ops/h", "ops/m", "ops/s", "Dev")
 		} else {
-			fmt.Fprintf(&sb, "  %-4s %4s %8s %12s %8s\n", "Step", "%", "Threads", "Actual "+unitLabel, "Dev")
+			fmt.Fprintf(&sb, "  %-4s %4s %7s %10s %9s %9s %7s\n", "Step", "%", "Threads", "ops/h", "ops/m", "ops/s", "Dev")
 		}
 		for _, sr := range optResult.StepResults {
-			actualDisplay := units.ConvertFromOpsPerSec(sr.ActualRPS*float64(generators), scenario.IntensityUnit)
+			actualRPSTotal := sr.ActualRPS * float64(generators)
+			oph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(actualRPSTotal, units.OpsPerHour)*1000) / 1000)
+			opm := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(actualRPSTotal, units.OpsPerMinute)*1000) / 1000)
+			ops := quickFormatNumber(math.Round(actualRPSTotal*1000) / 1000)
 			threadsTotal := sr.Threads * generators
 			level := styles.ClassifyDeviation(sr.DeviationPct, *scenario.DeviationTolerance)
 			sym := styles.DeviationSymbol(level)
 			if showPerGen {
-				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %6d  %5d  %11s  %5.2f%% %s\n",
+				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %5d %5d  %9s %8s %8s  %5.2f%% %s\n",
 					sr.Step.StepNumber, sr.Step.PercentOfTarget,
-					threadsTotal, sr.Threads,
-					quickFormatNumber(actualDisplay),
-					sr.DeviationPct, sym)
+					threadsTotal, sr.Threads, oph, opm, ops, sr.DeviationPct, sym)
 			} else {
-				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %6d  %11s  %5.2f%% %s\n",
+				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %5d  %9s %8s %8s  %5.2f%% %s\n",
 					sr.Step.StepNumber, sr.Step.PercentOfTarget,
-					threadsTotal,
-					quickFormatNumber(actualDisplay),
-					sr.DeviationPct, sym)
+					threadsTotal, oph, opm, ops, sr.DeviationPct, sym)
 			}
 		}
 	} else {
-		fmt.Fprintf(&sb, "  %-4s %4s %7s %6s %6s %8s %7s %8s\n", "Step", "%", "Vusers", "Delta", "Batch", "Every(s)", "Rampup", "Dev")
+		fmt.Fprintf(&sb, "  %-4s %4s %6s %5s %7s %7s %6s %9s %8s %8s %7s\n",
+			"Step", "%", "Vusers", "Delta", "VUBatch", "Every(s)", "Rampup", "ops/h", "ops/m", "ops/s", "Dev")
 		prevThreads := 0
 		for _, sr := range optResult.StepResults {
 			delta := sr.Threads - prevThreads
 			ramp := engine.CalculateRampUp(delta, rampupSec)
+			oph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(sr.ActualRPS, units.OpsPerHour)*1000) / 1000)
+			opm := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(sr.ActualRPS, units.OpsPerMinute)*1000) / 1000)
+			ops := quickFormatNumber(math.Round(sr.ActualRPS*1000) / 1000)
 			level := styles.ClassifyDeviation(sr.DeviationPct, *scenario.DeviationTolerance)
 			sym := styles.DeviationSymbol(level)
-			fmt.Fprintf(&sb, "  %3d  %3.0f%%   %5d   +%-4d  %4d    %4ds    %4ds  %5.2f%% %s\n",
+			fmt.Fprintf(&sb, "  %3d  %3.0f%%  %5d   +%-4d   %4d    %4ds   %4ds  %8s %8s %8s %5.2f%% %s\n",
 				sr.Step.StepNumber, sr.Step.PercentOfTarget,
 				sr.Threads, delta, ramp.BatchSize,
 				ramp.IntervalSec, ramp.ActualSec,
-				sr.DeviationPct, sym)
+				oph, opm, ops, sr.DeviationPct, sym)
 			prevThreads = sr.Threads
 		}
 	}
