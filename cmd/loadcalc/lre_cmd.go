@@ -46,6 +46,7 @@ func resolveCredentials(user, password string) (resolvedUser, resolvedPassword s
 
 func newLREPushCmd() *cobra.Command {
 	var inputPath, server, domain, project, user, password, scenariosDir, csvDelimiter string
+	var testName, testFolder string
 	var scenarioFiles, scenarios []string
 	var testID int
 	var dryRun bool
@@ -89,7 +90,7 @@ func newLREPushCmd() *cobra.Command {
 			defer func() { _ = client.Logout() }()
 
 			// Push
-			pr, pushErr := integration.PushToLRE(client, testID, results, dryRun)
+			pr, pushErr := integration.PushToLRE(client, testID, testName, testFolder, results, dryRun)
 			if pushErr != nil {
 				return fmt.Errorf("push failed: %w", pushErr)
 			}
@@ -115,7 +116,9 @@ func newLREPushCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&inputPath, "input", "i", "", "Input config file path")
-	cmd.Flags().IntVar(&testID, "test-id", 0, "LRE PC test ID")
+	cmd.Flags().IntVar(&testID, "test-id", 0, "LRE PC test ID (mutually exclusive with --test-name)")
+	cmd.Flags().StringVar(&testName, "test-name", "", "Name for a new LRE PC test (mutually exclusive with --test-id)")
+	cmd.Flags().StringVar(&testFolder, "test-folder", "Subject", "Folder path in LRE PC for new test")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Dry run (no API calls)")
 	cmd.Flags().StringSliceVar(&scenarios, "scenarios", nil, "Scenario names to push (default: all)")
 	cmd.Flags().StringSliceVar(&scenarioFiles, "scenario-files", nil, "Additional scenario files")
@@ -123,7 +126,6 @@ func newLREPushCmd() *cobra.Command {
 	cmd.Flags().StringVar(&csvDelimiter, "csv-delimiter", ";", "CSV delimiter character")
 	lreFlags(cmd, &server, &domain, &project, &user, &password)
 	_ = cmd.MarkFlagRequired("input")
-	_ = cmd.MarkFlagRequired("test-id")
 	return cmd
 }
 

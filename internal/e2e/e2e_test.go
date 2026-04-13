@@ -1096,7 +1096,7 @@ func TestFullPipeline_LREPush(t *testing.T) {
 
 	client := integration.NewLREClient(server.URL+"/LoadTest/rest", "DEFAULT", "PROJ")
 
-	pr, err := integration.PushToLRE(client, 1, results, false)
+	pr, err := integration.PushToLRE(client, 1, "", "", results, false)
 	if err != nil {
 		t.Fatalf("PushToLRE: %v", err)
 	}
@@ -1156,7 +1156,7 @@ func TestFullPipeline_LREPushDryRun(t *testing.T) {
 
 	client := integration.NewLREClient(server.URL+"/LoadTest/rest", "DEFAULT", "PROJ")
 
-	pr, err := integration.PushToLRE(client, 1, results, true)
+	pr, err := integration.PushToLRE(client, 1, "", "", results, true)
 	if err != nil {
 		t.Fatalf("PushToLRE dry-run: %v", err)
 	}

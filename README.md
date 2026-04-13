@@ -145,7 +145,7 @@ Empty cells use global defaults. Column order doesn't matter.
 | `name` | yes | — | Scenario name (LRE PC: group name in test) |
 | `script_id` | LRE PC only | — | Script ID in Performance Center (ignored for JMeter) |
 | `target_intensity` | yes | — | Target load value |
-| `intensity_unit` | yes | — | `ops_h` / `ops_m` / `ops_s` |
+| `intensity_unit` | no | `ops_h` | `ops_h` / `ops_m` / `ops_s` |
 | `max_script_time_ms` | yes | — | Max script execution time in milliseconds |
 | `background` | no | `false` | `true` = fixed load, ignores step scaling |
 | `background_percent` | no | `100` | % of target intensity for background scenarios |

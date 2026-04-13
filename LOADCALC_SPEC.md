@@ -1243,7 +1243,7 @@ CLI flag: `--log-level debug|info|warn|error` (default: `warn`)
 | `name` | string | *required* | LRE PC: group name in test; JMeter: display name |
 | `script_id` | int | *required for LRE PC* | LRE PC: script ID in Performance Center; ignored for JMeter |
 | `target_intensity` | float | *required* | Target value |
-| `intensity_unit` | enum | *required* | `ops_h`, `ops_m`, `ops_s` |
+| `intensity_unit` | enum | `ops_h` | `ops_h`, `ops_m`, `ops_s` |
 | `max_script_time_ms` | int | *required* | Max script execution time |
 | `background` | bool | `false` | Is background scenario |
 | `background_percent` | float | `100` | % of target for background |

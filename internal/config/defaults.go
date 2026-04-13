@@ -1,5 +1,7 @@
 package config
 
+import "loadcalc/pkg/units"
+
 // ResolveDefaults merges global defaults into scenarios.
 // For each scenario, if a per-scenario override pointer is nil, the global default is used.
 // Global fields not set in YAML are filled from DefaultGlobalDefaults().
@@ -31,9 +33,12 @@ func ResolveDefaults(plan *TestPlan) *TestPlan {
 		plan.GlobalDefaults.SpikeParticipate = defaults.SpikeParticipate
 	}
 
-	// Merge global defaults into each scenario's nil overrides.
+	// Merge global defaults into each scenario.
 	for i := range plan.Scenarios {
 		s := &plan.Scenarios[i]
+		if s.IntensityUnit == "" {
+			s.IntensityUnit = units.OpsPerHour
+		}
 		if s.LoadModel == nil {
 			lm := plan.GlobalDefaults.LoadModel
 			s.LoadModel = &lm

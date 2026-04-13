@@ -30,6 +30,14 @@ func newMockLREServer(t *testing.T) *httptest.Server {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	// Create test
+	mux.HandleFunc("POST /LoadTest/rest/domains/DEFAULT/projects/PROJ/tests", func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]string
+		json.NewDecoder(r.Body).Decode(&body)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(LRETest{ID: 42, Name: body["Name"]})
+	})
+
 	// List tests
 	mux.HandleFunc("GET /LoadTest/rest/domains/DEFAULT/projects/PROJ/tests", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Cookie") == "" {
@@ -99,6 +107,24 @@ func newMockLREServer(t *testing.T) *httptest.Server {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	// List groups for test 42 (newly created test - empty)
+	mux.HandleFunc("GET /LoadTest/rest/domains/DEFAULT/projects/PROJ/tests/42/groups", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]LREGroup{})
+	})
+
+	// Create group for test 42
+	mux.HandleFunc("POST /LoadTest/rest/domains/DEFAULT/projects/PROJ/tests/42/groups", func(w http.ResponseWriter, r *http.Request) {
+		var g LREGroup
+		json.NewDecoder(r.Body).Decode(&g)
+		g.ID = 200
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(g)
+	})
+
+	// Runtime settings for test 42 groups
+	mux.HandleFunc("GET /LoadTest/rest/domains/DEFAULT/projects/PROJ/tests/42/groups/200/runtime-settings", runtimeGetHandler)
+	mux.HandleFunc("PUT /LoadTest/rest/domains/DEFAULT/projects/PROJ/tests/42/groups/200/runtime-settings", runtimePutHandler)
+
 	// Scripts
 	mux.HandleFunc("GET /LoadTest/rest/domains/DEFAULT/projects/PROJ/scripts", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]LREScript{
@@ -136,6 +162,25 @@ func TestAuthenticate_Failure(t *testing.T) {
 	err := c.Authenticate("admin", "wrong")
 	if err == nil {
 		t.Fatal("expected error for bad credentials")
+	}
+}
+
+func TestCreateTest(t *testing.T) {
+	srv := newMockLREServer(t)
+	defer srv.Close()
+
+	c := newTestClient(srv.URL)
+	_ = c.Authenticate("admin", "secret")
+
+	test, err := c.CreateTest("MyNewTest", "Subject\\Folder1")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if test.ID != 42 {
+		t.Errorf("expected ID 42, got %d", test.ID)
+	}
+	if test.Name != "MyNewTest" {
+		t.Errorf("expected MyNewTest, got %s", test.Name)
 	}
 }
 

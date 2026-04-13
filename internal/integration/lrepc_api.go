@@ -129,6 +129,21 @@ type LRETest struct {
 	ID   int    `json:"ID"`
 }
 
+// CreateTest creates a new test in LRE PC.
+func (c *LREClient) CreateTest(name, folderPath string) (*LRETest, error) {
+	url := c.projectURL() + "/tests"
+	body := map[string]string{
+		"Name":           name,
+		"TestFolderPath": folderPath,
+	}
+	var result LRETest
+	err := c.doJSON(http.MethodPost, url, body, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // ListTests returns all tests in the project.
 func (c *LREClient) ListTests() ([]LRETest, error) {
 	var tests []LRETest

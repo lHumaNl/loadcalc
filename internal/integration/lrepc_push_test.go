@@ -73,7 +73,7 @@ func TestPushToLRE_NewAndExisting(t *testing.T) {
 
 	results := makeTestResults()
 
-	pr, err := PushToLRE(c, 1, results, false)
+	pr, err := PushToLRE(c, 1, "", "", results, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestPushToLRE_DryRun(t *testing.T) {
 
 	results := makeTestResults()
 
-	pr, err := PushToLRE(c, 1, results, true)
+	pr, err := PushToLRE(c, 1, "", "", results, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestPushToLRE_OpenModelSkipped(t *testing.T) {
 
 	results := makeTestResults()
 
-	pr, err := PushToLRE(c, 1, results, false)
+	pr, err := PushToLRE(c, 1, "", "", results, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -164,5 +164,50 @@ func TestPushToLRE_OpenModelSkipped(t *testing.T) {
 	}
 	if !foundWarning {
 		t.Error("expected warning about skipped open model scenario")
+	}
+}
+
+func TestPushToLRE_CreateNewTest(t *testing.T) {
+	srv := newMockLREServer(t)
+	defer srv.Close()
+
+	c := newTestClient(srv.URL)
+	_ = c.Authenticate("admin", "secret")
+
+	results := makeTestResults()
+
+	pr, err := PushToLRE(c, 0, "NewTest", "Subject", results, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// All closed-model scenarios should be created (new test has no existing groups)
+	if len(pr.Actions) != 2 {
+		t.Fatalf("expected 2 actions, got %d", len(pr.Actions))
+	}
+	for _, a := range pr.Actions {
+		if a.ActionType != "created" {
+			t.Errorf("expected all actions to be 'created', got %q for %s", a.ActionType, a.ScenarioName)
+		}
+	}
+}
+
+func TestPushToLRE_BothTestIDAndTestName_Error(t *testing.T) {
+	c := &LREClient{}
+	results := makeTestResults()
+
+	_, err := PushToLRE(c, 1, "SomeName", "", results, false)
+	if err == nil {
+		t.Fatal("expected error when both testID and testName are provided")
+	}
+}
+
+func TestPushToLRE_NeitherTestIDNorTestName_Error(t *testing.T) {
+	c := &LREClient{}
+	results := makeTestResults()
+
+	_, err := PushToLRE(c, 0, "", "", results, false)
+	if err == nil {
+		t.Fatal("expected error when neither testID nor testName is provided")
 	}
 }

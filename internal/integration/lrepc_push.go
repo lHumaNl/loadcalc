@@ -24,9 +24,43 @@ type PushResult struct {
 	Warnings []string
 }
 
+// resolveTestID validates inputs and resolves the test ID, creating a new test if needed.
+func resolveTestID(client *LREClient, testID int, testName, testFolder string, dryRun bool) (int, error) {
+	if testID > 0 && testName != "" {
+		return 0, fmt.Errorf("test-id and test-name are mutually exclusive")
+	}
+	if testID == 0 && testName == "" {
+		return 0, fmt.Errorf("either test-id or test-name must be provided")
+	}
+	if testID > 0 {
+		slog.Info("using existing test", "id", testID)
+		return testID, nil
+	}
+	if testFolder == "" {
+		testFolder = "Subject"
+	}
+	if dryRun {
+		slog.Info("dry-run: would create test", "name", testName, "folder", testFolder)
+		return 0, nil
+	}
+	created, err := client.CreateTest(testName, testFolder)
+	if err != nil {
+		return 0, fmt.Errorf("creating test: %w", err)
+	}
+	slog.Info("created new test", "id", created.ID, "name", testName)
+	return created.ID, nil
+}
+
 // PushToLRE pushes calculation results to an LRE PC test.
+// If testID > 0, updates an existing test. If testID == 0 and testName != "", creates a new test.
 // If dryRun is true, no API calls are made but actions are collected.
-func PushToLRE(client *LREClient, testID int, results engine.CalculationResults, dryRun bool) (*PushResult, error) {
+func PushToLRE(client *LREClient, testID int, testName, testFolder string, results engine.CalculationResults, dryRun bool) (*PushResult, error) {
+	resolvedID, err := resolveTestID(client, testID, testName, testFolder, dryRun)
+	if err != nil {
+		return nil, err
+	}
+	testID = resolvedID
+
 	pr := &PushResult{}
 
 	// List existing groups

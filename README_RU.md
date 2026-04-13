@@ -145,7 +145,7 @@ XLSX использует те же колонки на листе "Scenarios".
 | `name` | да | — | Имя сценария (LRE PC: имя группы в тесте) |
 | `script_id` | только LRE PC | — | ID скрипта в Performance Center (для JMeter игнорируется) |
 | `target_intensity` | да | — | Целевая интенсивность |
-| `intensity_unit` | да | — | `ops_h` / `ops_m` / `ops_s` |
+| `intensity_unit` | нет | `ops_h` | `ops_h` / `ops_m` / `ops_s` |
 | `max_script_time_ms` | да | — | Макс. время выполнения скрипта в миллисекундах |
 | `background` | нет | `false` | `true` = фиксированная нагрузка, не зависит от ступеней |
 | `background_percent` | нет | `100` | % от целевой интенсивности для фоновых сценариев |
