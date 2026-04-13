@@ -83,6 +83,8 @@ global:
   pacing_multiplier: 3.0
   deviation_tolerance: 2.5   # макс. допустимое отклонение, %
   generators_count: 3        # только JMeter
+  range_down: 0.2            # диапазон поиска множителя вниз
+  range_up: 0.5              # диапазон поиска множителя вверх
 
 scenarios:
   Main page:

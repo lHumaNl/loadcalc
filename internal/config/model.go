@@ -157,6 +157,8 @@ type GlobalDefaults struct {
 	DeviationTolerance float64   `yaml:"deviation_tolerance"`
 	SpikeParticipate   bool      `yaml:"spike_participate"`
 	GeneratorsCount    int       `yaml:"generators_count"`
+	RangeDown          float64   `yaml:"range_down"`
+	RangeUp            float64   `yaml:"range_up"`
 }
 
 // DefaultGlobalDefaults returns GlobalDefaults with spec-defined default values.
@@ -166,6 +168,8 @@ func DefaultGlobalDefaults() GlobalDefaults {
 		DeviationTolerance: 2.5,
 		SpikeParticipate:   true,
 		GeneratorsCount:    1,
+		RangeDown:          0.2,
+		RangeUp:            0.5,
 	}
 }
 

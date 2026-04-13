@@ -217,8 +217,7 @@ func TestOptimizer_OpenModel_Error(t *testing.T) {
 }
 
 func TestOptimizer_MultiplierRange_AffectsSearchRange(t *testing.T) {
-	// With a wider MultiplierRange, the optimizer can explore more pacing values
-	// and potentially find a better result than with the default range.
+	// With explicit RangeDown/RangeUp, the optimizer uses asymmetric search bounds.
 	scenario := makeOptScenario(3.623, 550, 3.0, 2.5)
 	steps := []profile.Step{
 		{StepNumber: 1, PercentOfTarget: 100},
@@ -226,15 +225,15 @@ func TestOptimizer_MultiplierRange_AffectsSearchRange(t *testing.T) {
 		{StepNumber: 3, PercentOfTarget: 210},
 	}
 
-	// MultiplierRange=0 uses default ±25% of basePacing
+	// Both zero uses default ±25% of basePacing
 	optDefault := &Optimizer{}
 	resultDefault, err := optDefault.Optimize(scenario, steps, config.ToolLREPC, config.LoadModelClosed, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// MultiplierRange=0.5 uses explicit range: multiplier ± 0.5 → pacing range [1375, 1925]
-	optExplicit := &Optimizer{MultiplierRange: 0.5}
+	// Explicit asymmetric range: down=0.2, up=0.5 → pacing range [550*(3.0-0.2), 550*(3.0+0.5)] = [1540, 1925]
+	optExplicit := &Optimizer{MultiplierRangeDown: 0.2, MultiplierRangeUp: 0.5}
 	resultExplicit, err := optExplicit.Optimize(scenario, steps, config.ToolLREPC, config.LoadModelClosed, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -248,13 +247,29 @@ func TestOptimizer_MultiplierRange_AffectsSearchRange(t *testing.T) {
 		t.Error("explicit: expected positive pacing")
 	}
 
-	// Verify that explicit range actually changes the search bounds:
-	// default range: basePacing=1650, ±25% → [1237.5, 2062.5]
-	// explicit range: 550*(3.0±0.5) → [1375, 1925]
-	// These are different ranges, so results may differ.
 	t.Logf("Default pacing: %.1f (dev %.4f%%), Explicit pacing: %.1f (dev %.4f%%)",
 		resultDefault.BestPacingMS, resultDefault.MaxDeviationPct,
 		resultExplicit.BestPacingMS, resultExplicit.MaxDeviationPct)
+}
+
+func TestOptimizer_AsymmetricRange(t *testing.T) {
+	// Test that asymmetric range (small down, large up) searches the expected bounds.
+	scenario := makeOptScenario(10.0, 500, 3.0, 2.5)
+	steps := []profile.Step{
+		{StepNumber: 1, PercentOfTarget: 100},
+		{StepNumber: 2, PercentOfTarget: 150},
+	}
+
+	// down=0.1, up=1.0 → pacing range [500*(3.0-0.1), 500*(3.0+1.0)] = [1450, 2000]
+	opt := &Optimizer{MultiplierRangeDown: 0.1, MultiplierRangeUp: 1.0}
+	result, err := opt.Optimize(scenario, steps, config.ToolLREPC, config.LoadModelClosed, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.BestPacingMS < 1450 || result.BestPacingMS > 2000 {
+		t.Errorf("expected pacing in [1450, 2000], got %.1f", result.BestPacingMS)
+	}
 }
 
 func TestOptimizer_MultiplierRange_Zero_PreservesOldBehavior(t *testing.T) {
@@ -263,8 +278,8 @@ func TestOptimizer_MultiplierRange_Zero_PreservesOldBehavior(t *testing.T) {
 		{StepNumber: 1, PercentOfTarget: 100},
 	}
 
-	// MultiplierRange=0 should use old ±25% logic
-	opt := &Optimizer{MultiplierRange: 0}
+	// Both RangeDown and RangeUp = 0 should use old ±25% logic
+	opt := &Optimizer{MultiplierRangeDown: 0, MultiplierRangeUp: 0}
 	result, err := opt.Optimize(scenario, steps, config.ToolLREPC, config.LoadModelClosed, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

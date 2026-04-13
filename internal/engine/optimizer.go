@@ -30,7 +30,8 @@ type OptimizeResult struct {
 
 // Optimizer performs brute-force pacing optimization across all steps.
 type Optimizer struct {
-	MultiplierRange float64 // 0 = use default ±25% of base pacing
+	MultiplierRangeDown float64 // how much below base multiplier to search (e.g., 0.2)
+	MultiplierRangeUp   float64 // how much above base multiplier to search (e.g., 0.5)
 }
 
 // bestDeviationForStep computes the minimum deviation achievable for a step
@@ -109,48 +110,51 @@ func bestThreadsForStep(stepTargetRPS, pacingMS float64) (threads int, actualRPS
 	return threads, actualRPS, deviationPct
 }
 
-// Optimize finds the pacing (or ops/min/thread) that minimizes the worst-case
-// deviation across all steps.
-func (o *Optimizer) Optimize(scenario config.Scenario, steps []profile.Step, tool config.Tool, loadModel config.LoadModel, generatorsCount int) (OptimizeResult, error) {
-	if loadModel == config.LoadModelOpen {
-		return OptimizeResult{}, fmt.Errorf("optimizer is not applicable for open load model")
-	}
+type optimizeParams struct {
+	multiplier    float64
+	tolerance     float64
+	isJMeter      bool
+	generators    int
+	baseTargetRPS float64
+	scriptTimeMs  int
+}
 
-	multiplier := 3.0
+func (o *Optimizer) resolveParams(scenario config.Scenario, tool config.Tool, generatorsCount int) (optimizeParams, error) {
+	p := optimizeParams{
+		multiplier:   3.0,
+		tolerance:    2.5,
+		isJMeter:     tool == config.ToolJMeter,
+		generators:   generatorsCount,
+		scriptTimeMs: scenario.MaxScriptTimeMs,
+	}
 	if scenario.PacingMultiplier != nil {
-		multiplier = *scenario.PacingMultiplier
+		p.multiplier = *scenario.PacingMultiplier
 	}
-
-	tolerance := 2.5
 	if scenario.DeviationTolerance != nil {
-		tolerance = *scenario.DeviationTolerance
+		p.tolerance = *scenario.DeviationTolerance
 	}
-
-	isJMeter := tool == config.ToolJMeter
-	generators := generatorsCount
-	if generators < 1 {
-		generators = 1
+	if p.generators < 1 {
+		p.generators = 1
 	}
-
-	// Normalize target to ops/s
-	baseTargetRPS := scenario.TargetIntensity
+	p.baseTargetRPS = scenario.TargetIntensity
 	switch scenario.IntensityUnit {
 	case units.OpsPerHour:
-		baseTargetRPS /= 3600
+		p.baseTargetRPS /= 3600
 	case units.OpsPerMinute:
-		baseTargetRPS /= 60
+		p.baseTargetRPS /= 60
 	case units.OpsPerSecond:
-		// already in ops/s
+		// already ops/s.
 	default:
-		return OptimizeResult{}, fmt.Errorf("unknown intensity unit: %s", scenario.IntensityUnit)
+		return p, fmt.Errorf("unknown intensity unit: %s", scenario.IntensityUnit)
 	}
+	return p, nil
+}
 
-	basePacing := float64(scenario.MaxScriptTimeMs) * multiplier
-
-	var low, high float64
-	if o.MultiplierRange > 0 {
-		low = float64(scenario.MaxScriptTimeMs) * (multiplier - o.MultiplierRange)
-		high = float64(scenario.MaxScriptTimeMs) * (multiplier + o.MultiplierRange)
+func (o *Optimizer) searchBounds(p optimizeParams) (low, high float64) {
+	basePacing := float64(p.scriptTimeMs) * p.multiplier
+	if o.MultiplierRangeDown > 0 || o.MultiplierRangeUp > 0 {
+		low = float64(p.scriptTimeMs) * (p.multiplier - o.MultiplierRangeDown)
+		high = float64(p.scriptTimeMs) * (p.multiplier + o.MultiplierRangeUp)
 	} else {
 		delta := basePacing * 0.25
 		low = basePacing - delta
@@ -159,13 +163,30 @@ func (o *Optimizer) Optimize(scenario config.Scenario, steps []profile.Step, too
 	if low < 1 {
 		low = 1
 	}
+	return low, high
+}
+
+// Optimize finds the pacing (or ops/min/thread) that minimizes the worst-case
+// deviation across all steps.
+func (o *Optimizer) Optimize(scenario config.Scenario, steps []profile.Step, tool config.Tool, loadModel config.LoadModel, generatorsCount int) (OptimizeResult, error) {
+	if loadModel == config.LoadModelOpen {
+		return OptimizeResult{}, fmt.Errorf("optimizer is not applicable for open load model")
+	}
+
+	params, err := o.resolveParams(scenario, tool, generatorsCount)
+	if err != nil {
+		return OptimizeResult{}, err
+	}
+
+	low, high := o.searchBounds(params)
+	basePacing := float64(scenario.MaxScriptTimeMs) * params.multiplier
 
 	bestScore := math.MaxFloat64
 	bestPacing := basePacing
 	bestWithinTolerance := false
 
 	for candidatePacing := low; candidatePacing <= high; candidatePacing += 1.0 {
-		score, allWithin := evaluateCandidate(candidatePacing, baseTargetRPS, tolerance, steps, isJMeter, generators)
+		score, allWithin := evaluateCandidate(candidatePacing, params.baseTargetRPS, params.tolerance, steps, params.isJMeter, params.generators)
 		if score < bestScore {
 			bestScore = score
 			bestPacing = candidatePacing
@@ -173,12 +194,12 @@ func (o *Optimizer) Optimize(scenario config.Scenario, steps []profile.Step, too
 		}
 	}
 
-	// Build final step results with best pacing
+	// Build final step results with best pacing.
 	stepResults := make([]StepResult, len(steps))
 	for i, step := range steps {
-		stepTargetRPS := baseTargetRPS * step.PercentOfTarget / 100
-		if isJMeter {
-			stepTargetRPS /= float64(generators)
+		stepTargetRPS := params.baseTargetRPS * step.PercentOfTarget / 100
+		if params.isJMeter {
+			stepTargetRPS /= float64(params.generators)
 		}
 		threads, actualRPS, dev := bestThreadsForStep(stepTargetRPS, bestPacing)
 		stepResults[i] = StepResult{
@@ -200,7 +221,7 @@ func (o *Optimizer) Optimize(scenario config.Scenario, steps []profile.Step, too
 	result.BestOpsPerMinPerThread = 60.0 / (bestPacing / 1000)
 
 	if !bestWithinTolerance {
-		result.Warning = fmt.Sprintf("no pacing found within %.2f%% tolerance; best-effort max deviation: %.4f%%", tolerance, bestScore)
+		result.Warning = fmt.Sprintf("no pacing found within %.2f%% tolerance; best-effort max deviation: %.4f%%", params.tolerance, bestScore)
 	}
 
 	return result, nil

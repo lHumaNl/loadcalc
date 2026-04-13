@@ -18,6 +18,12 @@ func ResolveDefaults(plan *TestPlan) *TestPlan {
 	if plan.GlobalDefaults.GeneratorsCount == 0 {
 		plan.GlobalDefaults.GeneratorsCount = defaults.GeneratorsCount
 	}
+	if plan.GlobalDefaults.RangeDown == 0 {
+		plan.GlobalDefaults.RangeDown = defaults.RangeDown
+	}
+	if plan.GlobalDefaults.RangeUp == 0 {
+		plan.GlobalDefaults.RangeUp = defaults.RangeUp
+	}
 	if plan.GlobalDefaults.LoadModel == "" {
 		plan.GlobalDefaults.LoadModel = LoadModelClosed
 	}

@@ -33,8 +33,11 @@ func TestQuickModelDefaults(t *testing.T) {
 	if m.steps != "50,75,100,125,150" {
 		t.Errorf("expected default steps, got %s", m.steps)
 	}
-	if m.searchRange != "0.5" {
-		t.Errorf("expected default searchRange 0.5, got %s", m.searchRange)
+	if m.rangeDown != "0.2" {
+		t.Errorf("expected default rangeDown 0.2, got %s", m.rangeDown)
+	}
+	if m.rangeUp != "0.5" {
+		t.Errorf("expected default rangeUp 0.5, got %s", m.rangeUp)
 	}
 	if m.rampup != "60" {
 		t.Errorf("expected default rampup 60, got %s", m.rampup)

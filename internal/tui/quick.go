@@ -31,7 +31,8 @@ const (
 	labelTool       = "Tool"
 	labelModel      = "Model"
 	labelMultiplier = "Multiplier"
-	labelRange      = "Range"
+	labelRangeDown  = "Range down"
+	labelRangeUp    = "Range up"
 	labelGenerators = "Generators"
 	labelSteps      = "Steps"
 	labelRampup     = "Rampup"
@@ -51,7 +52,8 @@ type QuickModel struct {
 	tool        string
 	model       string
 	multiplier  string
-	searchRange string
+	rangeDown   string
+	rangeUp     string
 	generators  string
 	steps       string
 	rampup      string
@@ -71,7 +73,8 @@ func NewQuickModel() QuickModel {
 			{label: labelTool, fieldType: fieldCycle, options: []string{"jmeter", "lre_pc"}},
 			{label: labelModel, fieldType: fieldCycle, options: []string{"closed", "open"}},
 			{label: labelMultiplier, fieldType: fieldText},
-			{label: labelRange, fieldType: fieldText},
+			{label: labelRangeDown, fieldType: fieldText},
+			{label: labelRangeUp, fieldType: fieldText},
 			{label: labelGenerators, fieldType: fieldText},
 			{label: labelSteps, fieldType: fieldText},
 			{label: labelRampup, fieldType: fieldText},
@@ -83,7 +86,8 @@ func NewQuickModel() QuickModel {
 		model:       "closed",
 		unit:        "ops_h",
 		multiplier:  "3.0",
-		searchRange: "0.5",
+		rangeDown:   "0.2",
+		rangeUp:     "0.5",
 		generators:  "3",
 		steps:       "50,75,100,125,150",
 		rampup:      "60",
@@ -191,8 +195,10 @@ func (m *QuickModel) getFieldValue(label string) string {
 		return m.model
 	case labelMultiplier:
 		return m.multiplier
-	case labelRange:
-		return m.searchRange
+	case labelRangeDown:
+		return m.rangeDown
+	case labelRangeUp:
+		return m.rangeUp
 	case labelGenerators:
 		return m.generators
 	case labelSteps:
@@ -217,8 +223,10 @@ func (m *QuickModel) setFieldValue(label, val string) {
 		m.model = val
 	case labelMultiplier:
 		m.multiplier = val
-	case labelRange:
-		m.searchRange = val
+	case labelRangeDown:
+		m.rangeDown = val
+	case labelRangeUp:
+		m.rangeUp = val
 	case labelGenerators:
 		m.generators = val
 	case labelSteps:
@@ -247,9 +255,14 @@ func (m *QuickModel) recalculate() {
 		m.err = fmt.Sprintf("invalid multiplier: %v", err)
 		return
 	}
-	searchRange, err := strconv.ParseFloat(m.searchRange, 64)
+	rangeDown, err := strconv.ParseFloat(m.rangeDown, 64)
 	if err != nil {
-		m.err = fmt.Sprintf("invalid range: %v", err)
+		m.err = fmt.Sprintf("invalid range down: %v", err)
+		return
+	}
+	rangeUp, err := strconv.ParseFloat(m.rangeUp, 64)
+	if err != nil {
+		m.err = fmt.Sprintf("invalid range up: %v", err)
 		return
 	}
 	rampupSec, err := strconv.Atoi(m.rampup)
@@ -307,7 +320,7 @@ func (m *QuickModel) recalculate() {
 	if m.steps == "" {
 		m.calcSingle(scenario, tool, loadModel, generators, unitLabel)
 	} else {
-		m.calcMultiStep(scenario, tool, loadModel, generators, unitLabel, rampupSec, searchRange)
+		m.calcMultiStep(scenario, tool, loadModel, generators, unitLabel, rampupSec, rangeDown, rangeUp)
 	}
 }
 
@@ -348,7 +361,7 @@ func (m *QuickModel) calcSingle(scenario config.Scenario, tool config.Tool, load
 	m.resultText = sb.String()
 }
 
-func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, loadModel config.LoadModel, generators int, unitLabel string, rampupSec int, searchRange float64) {
+func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, loadModel config.LoadModel, generators int, unitLabel string, rampupSec int, rangeDown, rangeUp float64) {
 	parts := strings.Split(m.steps, ",")
 	var stepList []profile.Step
 	for i, p := range parts {
@@ -368,7 +381,7 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 		return
 	}
 
-	opt := &engine.Optimizer{MultiplierRange: searchRange}
+	opt := &engine.Optimizer{MultiplierRangeDown: rangeDown, MultiplierRangeUp: rangeUp}
 	optResult, err := opt.Optimize(scenario, stepList, tool, loadModel, generators)
 	if err != nil {
 		m.err = err.Error()
@@ -455,8 +468,10 @@ func (m QuickModel) View() string {
 		switch f.label {
 		case labelScriptTime:
 			suffix = " ms"
-		case labelRange:
-			suffix = " ±"
+		case labelRangeDown:
+			suffix = " -"
+		case labelRangeUp:
+			suffix = " +"
 		case labelRampup:
 			suffix = " s"
 		}

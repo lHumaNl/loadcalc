@@ -276,6 +276,8 @@ global:
   deviation_tolerance: 2.5        # max allowed deviation from target, %
   spike_participate: true         # default: scenarios participate in spikes
   generators_count: 3             # JMeter only: number of load generators
+  range_down: 0.2                 # multiplier search range below base (default 0.2)
+  range_up: 0.5                   # multiplier search range above base (default 0.5)
 
 # Scenarios can be defined here (inline) and/or loaded from external CSV/XLSX files.
 # When both are present, they are concatenated (YAML scenarios first, then external files).

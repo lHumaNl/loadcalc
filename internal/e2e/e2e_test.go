@@ -152,7 +152,10 @@ func calculateScenario(scenario config.Scenario, steps []profile.Step, globals c
 		return sr, nil
 	}
 
-	opt := &engine.Optimizer{}
+	opt := &engine.Optimizer{
+		MultiplierRangeDown: globals.RangeDown,
+		MultiplierRangeUp:   globals.RangeUp,
+	}
 	optResult, err := opt.Optimize(scenario, steps, globals.Tool, loadModel, globals.GeneratorsCount)
 	if err != nil {
 		return sr, err

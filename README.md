@@ -83,6 +83,8 @@ global:
   pacing_multiplier: 3.0
   deviation_tolerance: 2.5   # max allowed deviation, %
   generators_count: 3        # JMeter only
+  range_down: 0.2            # multiplier search range below base
+  range_up: 0.5              # multiplier search range above base
 
 scenarios:
   Main page:
