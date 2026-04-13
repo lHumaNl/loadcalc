@@ -29,7 +29,9 @@ type OptimizeResult struct {
 }
 
 // Optimizer performs brute-force pacing optimization across all steps.
-type Optimizer struct{}
+type Optimizer struct {
+	MultiplierRange float64 // 0 = use default ±25% of base pacing
+}
 
 // bestDeviationForStep computes the minimum deviation achievable for a step
 // by trying ceil/floor/round thread counts.
@@ -144,12 +146,19 @@ func (o *Optimizer) Optimize(scenario config.Scenario, steps []profile.Step, too
 	}
 
 	basePacing := float64(scenario.MaxScriptTimeMs) * multiplier
-	delta := basePacing * 0.25
-	low := basePacing - delta
+
+	var low, high float64
+	if o.MultiplierRange > 0 {
+		low = float64(scenario.MaxScriptTimeMs) * (multiplier - o.MultiplierRange)
+		high = float64(scenario.MaxScriptTimeMs) * (multiplier + o.MultiplierRange)
+	} else {
+		delta := basePacing * 0.25
+		low = basePacing - delta
+		high = basePacing + delta
+	}
 	if low < 1 {
 		low = 1
 	}
-	high := basePacing + delta
 
 	bestScore := math.MaxFloat64
 	bestPacing := basePacing

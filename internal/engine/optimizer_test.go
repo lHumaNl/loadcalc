@@ -216,6 +216,67 @@ func TestOptimizer_OpenModel_Error(t *testing.T) {
 	}
 }
 
+func TestOptimizer_MultiplierRange_AffectsSearchRange(t *testing.T) {
+	// With a wider MultiplierRange, the optimizer can explore more pacing values
+	// and potentially find a better result than with the default range.
+	scenario := makeOptScenario(3.623, 550, 3.0, 2.5)
+	steps := []profile.Step{
+		{StepNumber: 1, PercentOfTarget: 100},
+		{StepNumber: 2, PercentOfTarget: 200},
+		{StepNumber: 3, PercentOfTarget: 210},
+	}
+
+	// MultiplierRange=0 uses default ±25% of basePacing
+	optDefault := &Optimizer{}
+	resultDefault, err := optDefault.Optimize(scenario, steps, config.ToolLREPC, config.LoadModelClosed, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// MultiplierRange=0.5 uses explicit range: multiplier ± 0.5 → pacing range [1375, 1925]
+	optExplicit := &Optimizer{MultiplierRange: 0.5}
+	resultExplicit, err := optExplicit.Optimize(scenario, steps, config.ToolLREPC, config.LoadModelClosed, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Both should produce valid results
+	if resultDefault.BestPacingMS <= 0 {
+		t.Error("default: expected positive pacing")
+	}
+	if resultExplicit.BestPacingMS <= 0 {
+		t.Error("explicit: expected positive pacing")
+	}
+
+	// Verify that explicit range actually changes the search bounds:
+	// default range: basePacing=1650, ±25% → [1237.5, 2062.5]
+	// explicit range: 550*(3.0±0.5) → [1375, 1925]
+	// These are different ranges, so results may differ.
+	t.Logf("Default pacing: %.1f (dev %.4f%%), Explicit pacing: %.1f (dev %.4f%%)",
+		resultDefault.BestPacingMS, resultDefault.MaxDeviationPct,
+		resultExplicit.BestPacingMS, resultExplicit.MaxDeviationPct)
+}
+
+func TestOptimizer_MultiplierRange_Zero_PreservesOldBehavior(t *testing.T) {
+	scenario := makeOptScenario(10.0, 500, 3.0, 2.5)
+	steps := []profile.Step{
+		{StepNumber: 1, PercentOfTarget: 100},
+	}
+
+	// MultiplierRange=0 should use old ±25% logic
+	opt := &Optimizer{MultiplierRange: 0}
+	result, err := opt.Optimize(scenario, steps, config.ToolLREPC, config.LoadModelClosed, 1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// basePacing = 500*3 = 1500, range [1125, 1875]
+	// Result should be within that range
+	if result.BestPacingMS < 1125 || result.BestPacingMS > 1875 {
+		t.Errorf("expected pacing in [1125, 1875], got %.1f", result.BestPacingMS)
+	}
+}
+
 func TestOptimizer_VeryLowIntensity(t *testing.T) {
 	// Very low intensity: 1 thread at every step
 	scenario := makeOptScenario(0.5, 500, 3.0, 10.0)

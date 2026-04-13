@@ -16,13 +16,14 @@ import (
 
 func newQuickCmd() *cobra.Command {
 	var (
-		multiplier float64
-		generators int
-		model      string
-		unit       string
-		tolerance  float64
-		steps      string
-		rampup     int
+		multiplier      float64
+		generators      int
+		model           string
+		unit            string
+		tolerance       float64
+		steps           string
+		rampup          int
+		multiplierRange float64
 	)
 
 	cmd := &cobra.Command{
@@ -74,7 +75,7 @@ func newQuickCmd() *cobra.Command {
 			if steps == "" {
 				return runQuickSingle(cmd, scenario, tool, loadModel, generators, intensityDisplay, unitLabel, multiplier)
 			}
-			return runQuickMultiStep(cmd, scenario, tool, loadModel, generators, intensityDisplay, unitLabel, multiplier, steps, rampup)
+			return runQuickMultiStep(cmd, scenario, tool, loadModel, generators, intensityDisplay, unitLabel, multiplier, steps, rampup, multiplierRange)
 		},
 	}
 
@@ -85,6 +86,7 @@ func newQuickCmd() *cobra.Command {
 	cmd.Flags().Float64Var(&tolerance, "tolerance", 2.5, "Deviation tolerance %")
 	cmd.Flags().StringVarP(&steps, "steps", "s", "", "Comma-separated step percentages (e.g., 50,75,100)")
 	cmd.Flags().IntVar(&rampup, "rampup", 60, "Ramp-up seconds per step (used with --steps for LRE PC)")
+	cmd.Flags().Float64Var(&multiplierRange, "range", 0.5, "Multiplier search range ± (0 = default ±25% of base pacing)")
 
 	return cmd
 }
@@ -131,7 +133,7 @@ func runQuickSingle(cmd *cobra.Command, scenario config.Scenario, tool config.To
 	return nil
 }
 
-func runQuickMultiStep(cmd *cobra.Command, scenario config.Scenario, tool config.Tool, loadModel config.LoadModel, generators int, intensityDisplay, unitLabel string, multiplier float64, stepsStr string, rampupSec int) error {
+func runQuickMultiStep(cmd *cobra.Command, scenario config.Scenario, tool config.Tool, loadModel config.LoadModel, generators int, intensityDisplay, unitLabel string, multiplier float64, stepsStr string, rampupSec int, multiplierRange float64) error {
 	// Parse step percentages
 	parts := strings.Split(stepsStr, ",")
 	var stepList []profile.Step
@@ -158,7 +160,7 @@ func runQuickMultiStep(cmd *cobra.Command, scenario config.Scenario, tool config
 	}
 
 	// Run optimizer
-	opt := &engine.Optimizer{}
+	opt := &engine.Optimizer{MultiplierRange: multiplierRange}
 	optResult, err := opt.Optimize(scenario, stepList, tool, loadModel, generators)
 	if err != nil {
 		return err
