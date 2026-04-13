@@ -110,8 +110,11 @@ func (m QuickModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m QuickModel) isFieldVisible(idx int) bool {
-	if m.fields[idx].label == labelGenerators && m.tool == "lre_pc" {
-		return false
+	label := m.fields[idx].label
+	if m.tool == "lre_pc" {
+		if label == labelGenerators || label == labelModel {
+			return false
+		}
 	}
 	return true
 }
@@ -259,39 +262,41 @@ func (m *QuickModel) setFieldValue(label, val string) {
 	}
 }
 
-func (m *QuickModel) recalculate() {
-	m.resultText = ""
-	m.err = ""
+type quickParams struct { //nolint:govet // fieldalignment: contains config.Scenario with pointers
+	scenario   config.Scenario
+	unitLabel  string
+	tool       config.Tool
+	loadModel  config.LoadModel
+	rangeDown  float64
+	rangeUp    float64
+	rampupSec  int
+	generators int
+}
 
+func (m *QuickModel) parseParams() (*quickParams, error) {
 	intensity, err := strconv.ParseFloat(m.intensity, 64)
 	if err != nil {
-		m.err = fmt.Sprintf("invalid intensity: %v", err)
-		return
+		return nil, fmt.Errorf("invalid intensity: %w", err)
 	}
 	scriptTimeMs, err := strconv.Atoi(m.scriptTime)
 	if err != nil {
-		m.err = fmt.Sprintf("invalid script time: %v", err)
-		return
+		return nil, fmt.Errorf("invalid script time: %w", err)
 	}
 	multiplier, err := strconv.ParseFloat(m.multiplier, 64)
 	if err != nil {
-		m.err = fmt.Sprintf("invalid multiplier: %v", err)
-		return
+		return nil, fmt.Errorf("invalid multiplier: %w", err)
 	}
 	rangeDown, err := strconv.ParseFloat(m.rangeDown, 64)
 	if err != nil {
-		m.err = fmt.Sprintf("invalid range down: %v", err)
-		return
+		return nil, fmt.Errorf("invalid range down: %w", err)
 	}
 	rangeUp, err := strconv.ParseFloat(m.rangeUp, 64)
 	if err != nil {
-		m.err = fmt.Sprintf("invalid range up: %v", err)
-		return
+		return nil, fmt.Errorf("invalid range up: %w", err)
 	}
 	rampupSec, err := strconv.Atoi(m.rampup)
 	if err != nil {
-		m.err = fmt.Sprintf("invalid rampup: %v", err)
-		return
+		return nil, fmt.Errorf("invalid rampup: %w", err)
 	}
 
 	var tool config.Tool
@@ -301,49 +306,66 @@ func (m *QuickModel) recalculate() {
 	case "lre_pc":
 		tool = config.ToolLREPC
 	default:
-		m.err = fmt.Sprintf("unknown tool: %s", m.tool)
-		return
+		return nil, fmt.Errorf("unknown tool: %s", m.tool)
 	}
 
-	var generators int
-	if tool == config.ToolLREPC {
-		generators = 1
-	} else {
+	generators := 1
+	if tool != config.ToolLREPC {
 		generators, err = strconv.Atoi(m.generators)
 		if err != nil {
-			m.err = fmt.Sprintf("invalid generators: %v", err)
-			return
+			return nil, fmt.Errorf("invalid generators: %w", err)
 		}
 		if generators < 1 {
-			m.err = "generators must be >= 1"
-			return
+			return nil, fmt.Errorf("generators must be >= 1")
 		}
 	}
 
 	loadModel := config.LoadModel(m.model)
-	if loadModel != config.LoadModelClosed && loadModel != config.LoadModelOpen {
-		m.err = fmt.Sprintf("unknown model: %s", m.model)
-		return
+	if tool == config.ToolLREPC {
+		loadModel = config.LoadModelClosed
 	}
 
 	intensityUnit := units.IntensityUnit(m.unit)
 	tolerance := 2.5
 
-	scenario := config.Scenario{
-		Name:               "quick",
-		TargetIntensity:    intensity,
-		IntensityUnit:      intensityUnit,
-		MaxScriptTimeMs:    scriptTimeMs,
-		PacingMultiplier:   &multiplier,
-		DeviationTolerance: &tolerance,
+	return &quickParams{
+		tool:       tool,
+		loadModel:  loadModel,
+		generators: generators,
+		scenario: config.Scenario{
+			Name:               "quick",
+			TargetIntensity:    intensity,
+			IntensityUnit:      intensityUnit,
+			MaxScriptTimeMs:    scriptTimeMs,
+			PacingMultiplier:   &multiplier,
+			DeviationTolerance: &tolerance,
+		},
+		unitLabel: formatUnitLabel(intensityUnit),
+		rampupSec: rampupSec,
+		rangeDown: rangeDown,
+		rangeUp:   rangeUp,
+	}, nil
+}
+
+func (m *QuickModel) recalculate() {
+	m.resultText = ""
+	m.err = ""
+
+	// Force LRE PC to closed model in the UI field.
+	if m.tool == "lre_pc" {
+		m.model = "closed"
 	}
 
-	unitLabel := formatUnitLabel(intensityUnit)
+	p, err := m.parseParams()
+	if err != nil {
+		m.err = err.Error()
+		return
+	}
 
 	if m.steps == "" {
-		m.calcSingle(scenario, tool, loadModel, generators, unitLabel)
+		m.calcSingle(p.scenario, p.tool, p.loadModel, p.generators, p.unitLabel)
 	} else {
-		m.calcMultiStep(scenario, tool, loadModel, generators, unitLabel, rampupSec, rangeDown, rangeUp)
+		m.calcMultiStep(p.scenario, p.tool, p.loadModel, p.generators, p.unitLabel, p.rampupSec, p.rangeDown, p.rangeUp)
 	}
 }
 
@@ -400,7 +422,7 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 	}
 
 	if loadModel == config.LoadModelOpen {
-		m.err = "multi-step not supported for open model"
+		m.calcMultiStepOpen(scenario, stepList, generators, unitLabel)
 		return
 	}
 
@@ -448,6 +470,27 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 		}
 	}
 
+	m.resultText = sb.String()
+}
+
+func (m *QuickModel) calcMultiStepOpen(scenario config.Scenario, stepList []profile.Step, generators int, unitLabel string) {
+	baseRPS, err := units.NormalizeToOpsPerSec(scenario.TargetIntensity, scenario.IntensityUnit)
+	if err != nil {
+		m.err = err.Error()
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Open model — rate per step\n\n")
+	fmt.Fprintf(&sb, "  %-4s %4s %12s %12s\n", "Step", "%", "Rate "+unitLabel, "Per Generator")
+	for _, step := range stepList {
+		stepRPS := baseRPS * step.PercentOfTarget / 100
+		totalDisplay := units.ConvertFromOpsPerSec(stepRPS, scenario.IntensityUnit)
+		perGen := totalDisplay / float64(generators)
+		fmt.Fprintf(&sb, "  %3d  %3.0f%%  %11s  %11s\n",
+			step.StepNumber, step.PercentOfTarget,
+			quickFormatNumber(totalDisplay), quickFormatNumber(perGen))
+	}
 	m.resultText = sb.String()
 }
 
