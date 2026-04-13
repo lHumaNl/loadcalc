@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"strconv"
 	"strings"
@@ -50,6 +51,13 @@ func newQuickCmd() *cobra.Command {
 				tool = config.ToolLREPC
 			default:
 				return fmt.Errorf("unknown tool: %s (use jmeter or lre_pc)", toolStr)
+			}
+
+			if tool == config.ToolLREPC {
+				if cmd.Flags().Changed("generators") {
+					slog.Info("--generators flag ignored for lre_pc tool, using 1")
+				}
+				generators = 1
 			}
 
 			loadModel := config.LoadModel(model)

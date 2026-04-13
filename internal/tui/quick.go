@@ -252,15 +252,6 @@ func (m *QuickModel) recalculate() {
 		m.err = fmt.Sprintf("invalid range: %v", err)
 		return
 	}
-	generators, err := strconv.Atoi(m.generators)
-	if err != nil {
-		m.err = fmt.Sprintf("invalid generators: %v", err)
-		return
-	}
-	if generators < 1 {
-		m.err = "generators must be >= 1"
-		return
-	}
 	rampupSec, err := strconv.Atoi(m.rampup)
 	if err != nil {
 		m.err = fmt.Sprintf("invalid rampup: %v", err)
@@ -276,6 +267,21 @@ func (m *QuickModel) recalculate() {
 	default:
 		m.err = fmt.Sprintf("unknown tool: %s", m.tool)
 		return
+	}
+
+	var generators int
+	if tool == config.ToolLREPC {
+		generators = 1
+	} else {
+		generators, err = strconv.Atoi(m.generators)
+		if err != nil {
+			m.err = fmt.Sprintf("invalid generators: %v", err)
+			return
+		}
+		if generators < 1 {
+			m.err = "generators must be >= 1"
+			return
+		}
 	}
 
 	loadModel := config.LoadModel(m.model)
@@ -423,6 +429,10 @@ func (m QuickModel) View() string {
 	sb.WriteString("\n\n")
 
 	for i, f := range m.fields {
+		// Hide generators field for LRE PC (not applicable).
+		if f.label == labelGenerators && m.tool == "lre_pc" {
+			continue
+		}
 		label := labelStyle.Render(f.label + ":")
 		val := m.getFieldValueByIndex(i)
 		display := val
