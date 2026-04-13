@@ -107,12 +107,52 @@ profile:
   default_stability_sec: 300
 ```
 
-Сценарии можно загружать из CSV или XLSX файлов:
+### Сценарии из CSV / XLSX
+
+Сценарии можно загружать из внешних файлов — удобнее заполнять в Excel или копировать из Confluence:
 
 ```bash
 loadcalc calculate -i config.yaml --scenarios scenarios.csv
+loadcalc calculate -i config.yaml --scenarios uc_web.csv --scenarios uc_api.csv
 loadcalc calculate -i config.yaml --scenarios-dir ./scenarios/
 ```
+
+Сценарии из YAML и из файлов **объединяются** — можно держать "постоянные" сценарии в YAML, а остальные менять через CSV.
+
+Генерация пустого шаблона:
+
+```bash
+loadcalc template --format csv -o scenarios.csv
+```
+
+Разделитель CSV — `;` по умолчанию (переопределение: `--csv-delimiter ","`).
+XLSX использует те же колонки на листе "Scenarios".
+Пустые ячейки используют глобальные значения. Порядок колонок не важен.
+
+**Пример** (как выглядит в таблице или CSV):
+
+| name | script_id | target_intensity | intensity_unit | max_script_time_ms | background | background_percent | load_model | pacing_multiplier |
+|------|-----------|-----------------|---------------|-------------------|------------|-------------------|------------|------------------|
+| Main page | 101 | 720000 | ops_h | 1100 | | | | |
+| Test page | 102 | 1500 | ops_m | 1000 | | | | 4.0 |
+| 404 page | 103 | 90000 | ops_h | 200 | true | 100 | | |
+| API health | | 75 | ops_h | 50 | | | open | |
+
+**Описание колонок:**
+
+| Колонка | Обязательна | По умолчанию | Описание |
+|---------|-------------|-------------|----------|
+| `name` | да | — | Имя сценария (LRE PC: имя группы в тесте) |
+| `script_id` | только LRE PC | — | ID скрипта в Performance Center (для JMeter игнорируется) |
+| `target_intensity` | да | — | Целевая интенсивность |
+| `intensity_unit` | да | — | `ops_h` / `ops_m` / `ops_s` |
+| `max_script_time_ms` | да | — | Макс. время выполнения скрипта в миллисекундах |
+| `background` | нет | `false` | `true` = фиксированная нагрузка, не зависит от ступеней |
+| `background_percent` | нет | `100` | % от целевой интенсивности для фоновых сценариев |
+| `load_model` | нет | из global | `closed` / `open` |
+| `pacing_multiplier` | нет | из global | Переопределение множителя пейсинга для сценария |
+| `deviation_tolerance` | нет | из global | Переопределение макс. допустимого отклонения (%) |
+| `spike_participate` | нет | из global | `true` / `false` — участие в фазах спайков |
 
 ---
 
@@ -169,11 +209,15 @@ loadcalc jmx inject -i config.yaml --jmx-template base.jmx -o test.jmx
 # Обновление существующих ThreadGroup в .jmx
 loadcalc jmx inject -i config.yaml --jmx-template base.jmx -o test.jmx --update-existing
 
-# Отправка в LRE Performance Center
+# Отправка в существующий тест LRE PC
 loadcalc lre push -i config.yaml --server https://lre.company.com \
   --domain PERF --project MyProject --test-id 123
 
-# Пробный запуск (посмотреть что будет отправлено)
+# Создание нового теста в LRE PC и отправка
+loadcalc lre push -i config.yaml --server https://lre.company.com \
+  --domain PERF --project MyProject --test-name "Release 2.1 Perf Test" --test-folder "Subject/Perf"
+
+# Пробный запуск (посмотреть что будет отправлено, без изменений)
 loadcalc lre push -i config.yaml --server https://lre.company.com \
   --domain PERF --project MyProject --test-id 123 --dry-run
 ```
