@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 
 	"loadcalc/internal/config"
 	"loadcalc/internal/engine"
@@ -681,65 +682,24 @@ func quickFormatNumber(v float64) string {
 	return intPart
 }
 
-// buildTable creates a bordered table from headers and rows.
-// All cells are right-aligned and padded to column width.
+// buildTable creates a bordered table from headers and rows using lipgloss/table.
 func buildTable(headers []string, rows [][]string) string {
-	widths := calcColumnWidths(headers, rows)
-	var sb strings.Builder
-	writeBorder(&sb, widths, "┌", "┬", "┐")
-	writeRow(&sb, headers, widths)
-	writeBorder(&sb, widths, "├", "┼", "┤")
-	for _, row := range rows {
-		writeRow(&sb, row, widths)
-	}
-	writeBorderNoNewline(&sb, widths, "└", "┴", "┘")
-	return sb.String()
-}
-
-func calcColumnWidths(headers []string, rows [][]string) []int {
-	widths := make([]int, len(headers))
-	for i, h := range headers {
-		widths[i] = len(h)
-	}
-	for _, row := range rows {
-		for i, cell := range row {
-			if i < len(widths) && len(cell) > widths[i] {
-				widths[i] = len(cell)
+	t := table.New().
+		Border(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("240"))).
+		Headers(headers...).
+		StyleFunc(func(row, _ int) lipgloss.Style {
+			if row == table.HeaderRow {
+				return lipgloss.NewStyle().Bold(true).Align(lipgloss.Right).Padding(0, 1)
 			}
-		}
-	}
-	return widths
-}
+			return lipgloss.NewStyle().Align(lipgloss.Right).Padding(0, 1)
+		})
 
-func writeBorder(sb *strings.Builder, widths []int, left, mid, right string) {
-	writeBorderNoNewline(sb, widths, left, mid, right)
-	sb.WriteString("\n")
-}
-
-func writeBorderNoNewline(sb *strings.Builder, widths []int, left, mid, right string) {
-	sb.WriteString(left)
-	for i, w := range widths {
-		sb.WriteString(strings.Repeat("─", w+2))
-		if i < len(widths)-1 {
-			sb.WriteString(mid)
-		}
+	for _, row := range rows {
+		t.Row(row...)
 	}
-	sb.WriteString(right)
-}
 
-func writeRow(sb *strings.Builder, cells []string, widths []int) {
-	sb.WriteString("│")
-	for i, w := range widths {
-		cell := ""
-		if i < len(cells) {
-			cell = cells[i]
-		}
-		fmt.Fprintf(sb, " %*s ", w, cell)
-		if i < len(widths)-1 {
-			sb.WriteString("│")
-		}
-	}
-	sb.WriteString("│\n")
+	return t.Render()
 }
 
 // RunQuick launches the quick calculator TUI.
