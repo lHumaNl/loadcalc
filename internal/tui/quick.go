@@ -88,7 +88,7 @@ func NewQuickModel() QuickModel {
 		multiplier:  "3.0",
 		rangeDown:   "0.2",
 		rangeUp:     "0.5",
-		generators:  "3",
+		generators:  "1",
 		steps:       "50,75,100,125,150",
 		rampup:      "60",
 	}

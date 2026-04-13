@@ -27,8 +27,8 @@ func TestQuickModelDefaults(t *testing.T) {
 	if m.multiplier != "3.0" {
 		t.Errorf("expected default multiplier 3.0, got %s", m.multiplier)
 	}
-	if m.generators != "3" {
-		t.Errorf("expected default generators 3, got %s", m.generators)
+	if m.generators != "1" {
+		t.Errorf("expected default generators 1, got %s", m.generators)
 	}
 	if m.steps != "50,75,100,125,150" {
 		t.Errorf("expected default steps, got %s", m.steps)
