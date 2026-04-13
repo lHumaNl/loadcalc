@@ -447,11 +447,13 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 
 	if tool == config.ToolJMeter {
 		showPerGen := generators > 1
+		var headers []string
 		if showPerGen {
-			fmt.Fprintf(&sb, "  %-4s %4s %7s %5s %10s %9s %9s %7s\n", "Step", "%", "Threads", "/Gen", "ops/h", "ops/m", "ops/s", "Dev")
+			headers = []string{"Step", "%", "Threads", "/Gen", "ops/h", "ops/m", "ops/s", "Dev"}
 		} else {
-			fmt.Fprintf(&sb, "  %-4s %4s %7s %10s %9s %9s %7s\n", "Step", "%", "Threads", "ops/h", "ops/m", "ops/s", "Dev")
+			headers = []string{"Step", "%", "Threads", "ops/h", "ops/m", "ops/s", "Dev"}
 		}
+		var rows [][]string
 		for _, sr := range optResult.StepResults {
 			actualRPSTotal := sr.ActualRPS * float64(generators)
 			oph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(actualRPSTotal, units.OpsPerHour)*1000) / 1000)
@@ -460,19 +462,21 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 			threadsTotal := sr.Threads * generators
 			level := styles.ClassifyDeviation(sr.DeviationPct, *scenario.DeviationTolerance)
 			sym := styles.DeviationSymbol(level)
+			dev := fmt.Sprintf("%.2f%% %s", sr.DeviationPct, sym)
 			if showPerGen {
-				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %5d %5d  %9s %8s %8s  %5.2f%% %s\n",
-					sr.Step.StepNumber, sr.Step.PercentOfTarget,
-					threadsTotal, sr.Threads, oph, opm, ops, sr.DeviationPct, sym)
+				rows = append(rows, []string{
+					fmt.Sprintf("%d", sr.Step.StepNumber), fmt.Sprintf("%.0f%%", sr.Step.PercentOfTarget),
+					fmt.Sprintf("%d", threadsTotal), fmt.Sprintf("%d", sr.Threads), oph, opm, ops, dev})
 			} else {
-				fmt.Fprintf(&sb, "  %3d  %3.0f%%   %5d  %9s %8s %8s  %5.2f%% %s\n",
-					sr.Step.StepNumber, sr.Step.PercentOfTarget,
-					threadsTotal, oph, opm, ops, sr.DeviationPct, sym)
+				rows = append(rows, []string{
+					fmt.Sprintf("%d", sr.Step.StepNumber), fmt.Sprintf("%.0f%%", sr.Step.PercentOfTarget),
+					fmt.Sprintf("%d", threadsTotal), oph, opm, ops, dev})
 			}
 		}
+		sb.WriteString(buildTable(headers, rows))
 	} else {
-		fmt.Fprintf(&sb, "  %-4s %4s %6s %5s %7s %7s %6s %9s %8s %8s %7s\n",
-			"Step", "%", "Vusers", "Delta", "VUBatch", "Every(s)", "Rampup", "ops/h", "ops/m", "ops/s", "Dev")
+		headers := []string{"Step", "%", "Vusers", "Delta", "VUBatch", "Every(s)", "Rampup", "ops/h", "ops/m", "ops/s", "Dev"}
+		var rows [][]string
 		prevThreads := 0
 		for _, sr := range optResult.StepResults {
 			delta := sr.Threads - prevThreads
@@ -482,13 +486,15 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 			ops := quickFormatNumber(math.Round(sr.ActualRPS*1000) / 1000)
 			level := styles.ClassifyDeviation(sr.DeviationPct, *scenario.DeviationTolerance)
 			sym := styles.DeviationSymbol(level)
-			fmt.Fprintf(&sb, "  %3d  %3.0f%%  %5d   +%-4d   %4d    %4ds   %4ds  %8s %8s %8s %5.2f%% %s\n",
-				sr.Step.StepNumber, sr.Step.PercentOfTarget,
-				sr.Threads, delta, ramp.BatchSize,
-				ramp.IntervalSec, ramp.ActualSec,
-				oph, opm, ops, sr.DeviationPct, sym)
+			dev := fmt.Sprintf("%.2f%% %s", sr.DeviationPct, sym)
+			rows = append(rows, []string{
+				fmt.Sprintf("%d", sr.Step.StepNumber), fmt.Sprintf("%.0f%%", sr.Step.PercentOfTarget),
+				fmt.Sprintf("%d", sr.Threads), fmt.Sprintf("+%d", delta),
+				fmt.Sprintf("%d", ramp.BatchSize), fmt.Sprintf("%ds", ramp.IntervalSec),
+				fmt.Sprintf("%ds", ramp.ActualSec), oph, opm, ops, dev})
 			prevThreads = sr.Threads
 		}
+		sb.WriteString(buildTable(headers, rows))
 	}
 
 	m.resultText = sb.String()
@@ -502,34 +508,35 @@ func (m *QuickModel) calcMultiStepOpen(scenario config.Scenario, stepList []prof
 	}
 
 	showPerGen := generators > 1
-	var sb strings.Builder
-	sb.WriteString("Open model — rate per step\n\n")
 
+	var headers []string
 	if showPerGen {
-		fmt.Fprintf(&sb, "  %-4s %4s %12s %10s %10s %12s %10s %10s\n",
-			"Step", "%", "ops/h", "ops/m", "ops/s", "ops/h /gen", "ops/m /gen", "ops/s /gen")
+		headers = []string{"Step", "%", "ops/h", "ops/m", "ops/s", "ops/h /gen", "ops/m /gen", "ops/s /gen"}
 	} else {
-		fmt.Fprintf(&sb, "  %-4s %4s %12s %10s %10s\n", "Step", "%", "ops/h", "ops/m", "ops/s")
+		headers = []string{"Step", "%", "ops/h", "ops/m", "ops/s"}
 	}
 
+	var rows [][]string
 	for _, step := range stepList {
 		stepRPS := baseRPS * step.PercentOfTarget / 100
 		oph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(stepRPS, units.OpsPerHour)*1000) / 1000)
 		opm := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(stepRPS, units.OpsPerMinute)*1000) / 1000)
 		ops := quickFormatNumber(math.Round(stepRPS*1000) / 1000)
 
+		row := []string{fmt.Sprintf("%d", step.StepNumber), fmt.Sprintf("%.0f%%", step.PercentOfTarget), oph, opm, ops}
 		if showPerGen {
 			genRPS := stepRPS / float64(generators)
 			goph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(genRPS, units.OpsPerHour)*1000) / 1000)
 			gopm := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(genRPS, units.OpsPerMinute)*1000) / 1000)
 			gops := quickFormatNumber(math.Round(genRPS*1000) / 1000)
-			fmt.Fprintf(&sb, "  %3d  %3.0f%%  %11s  %9s  %9s  %11s  %9s  %9s\n",
-				step.StepNumber, step.PercentOfTarget, oph, opm, ops, goph, gopm, gops)
-		} else {
-			fmt.Fprintf(&sb, "  %3d  %3.0f%%  %11s  %9s  %9s\n",
-				step.StepNumber, step.PercentOfTarget, oph, opm, ops)
+			row = append(row, goph, gopm, gops)
 		}
+		rows = append(rows, row)
 	}
+
+	var sb strings.Builder
+	sb.WriteString("Open model — rate per step\n\n")
+	sb.WriteString(buildTable(headers, rows))
 	m.resultText = sb.String()
 }
 
@@ -547,8 +554,7 @@ func (m QuickModel) View() string {
 	sb.WriteString("\n\n")
 
 	for i, f := range m.fields {
-		// Hide generators field for LRE PC (not applicable).
-		if f.label == labelGenerators && m.tool == "lre_pc" {
+		if !m.isFieldVisible(i) {
 			continue
 		}
 		label := labelStyle.Render(f.label + ":")
@@ -673,6 +679,67 @@ func quickFormatNumber(v float64) string {
 		return intPart + "." + parts[1]
 	}
 	return intPart
+}
+
+// buildTable creates a bordered table from headers and rows.
+// All cells are right-aligned and padded to column width.
+func buildTable(headers []string, rows [][]string) string {
+	widths := calcColumnWidths(headers, rows)
+	var sb strings.Builder
+	writeBorder(&sb, widths, "┌", "┬", "┐")
+	writeRow(&sb, headers, widths)
+	writeBorder(&sb, widths, "├", "┼", "┤")
+	for _, row := range rows {
+		writeRow(&sb, row, widths)
+	}
+	writeBorderNoNewline(&sb, widths, "└", "┴", "┘")
+	return sb.String()
+}
+
+func calcColumnWidths(headers []string, rows [][]string) []int {
+	widths := make([]int, len(headers))
+	for i, h := range headers {
+		widths[i] = len(h)
+	}
+	for _, row := range rows {
+		for i, cell := range row {
+			if i < len(widths) && len(cell) > widths[i] {
+				widths[i] = len(cell)
+			}
+		}
+	}
+	return widths
+}
+
+func writeBorder(sb *strings.Builder, widths []int, left, mid, right string) {
+	writeBorderNoNewline(sb, widths, left, mid, right)
+	sb.WriteString("\n")
+}
+
+func writeBorderNoNewline(sb *strings.Builder, widths []int, left, mid, right string) {
+	sb.WriteString(left)
+	for i, w := range widths {
+		sb.WriteString(strings.Repeat("─", w+2))
+		if i < len(widths)-1 {
+			sb.WriteString(mid)
+		}
+	}
+	sb.WriteString(right)
+}
+
+func writeRow(sb *strings.Builder, cells []string, widths []int) {
+	sb.WriteString("│")
+	for i, w := range widths {
+		cell := ""
+		if i < len(cells) {
+			cell = cells[i]
+		}
+		fmt.Fprintf(sb, " %*s ", w, cell)
+		if i < len(widths)-1 {
+			sb.WriteString("│")
+		}
+	}
+	sb.WriteString("│\n")
 }
 
 // RunQuick launches the quick calculator TUI.
