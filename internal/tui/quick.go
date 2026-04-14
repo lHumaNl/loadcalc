@@ -453,7 +453,7 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 		showPerGen := generators > 1
 		var headers []string
 		if showPerGen {
-			headers = []string{"Step", "%", "Threads", "/Gen", "ops/h", "ops/m", "ops/s", "Dev"}
+			headers = []string{"Step", "%", "Threads", "/Gen", "ops/h", "ops/m", "ops/s", "ops/h /gen", "ops/m /gen", "ops/s /gen", "Dev"}
 		} else {
 			headers = []string{"Step", "%", "Threads", "ops/h", "ops/m", "ops/s", "Dev"}
 		}
@@ -468,9 +468,13 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 			sym := styles.DeviationSymbol(level)
 			dev := fmt.Sprintf("%.2f%% %s", sr.DeviationPct, sym)
 			if showPerGen {
+				goph := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(sr.ActualRPS, units.OpsPerHour)*1000) / 1000)
+				gopm := quickFormatNumber(math.Round(units.ConvertFromOpsPerSec(sr.ActualRPS, units.OpsPerMinute)*1000) / 1000)
+				gops := quickFormatNumber(math.Round(sr.ActualRPS*1000) / 1000)
 				rows = append(rows, []string{
 					fmt.Sprintf("%d", sr.Step.StepNumber), fmt.Sprintf("%.0f%%", sr.Step.PercentOfTarget),
-					fmt.Sprintf("%d", threadsTotal), fmt.Sprintf("%d", sr.Threads), oph, opm, ops, dev})
+					fmt.Sprintf("%d", threadsTotal), fmt.Sprintf("%d", sr.Threads),
+					oph, opm, ops, goph, gopm, gops, dev})
 			} else {
 				rows = append(rows, []string{
 					fmt.Sprintf("%d", sr.Step.StepNumber), fmt.Sprintf("%.0f%%", sr.Step.PercentOfTarget),
@@ -563,6 +567,39 @@ func evalDeviation(multiplier float64, scriptTimeMs int, baseTargetRPS float64, 
 	return maxDev
 }
 
+type searchContext struct {
+	steps          []profile.Step
+	baseTargetRPS  float64
+	currentBestDev float64
+	step           float64
+	eps            float64
+	scriptTimeMs   int
+	generators     int
+	isJMeter       bool
+}
+
+// searchBest scans multiplier candidates and returns the one with lowest dev
+// that rounds strictly below currentBestDev. dir is positive for ascending scan.
+func (s *searchContext) searchBest(lo, hi, dir float64) (found bool, bestMult, bestDev float64) {
+	currentDisplay := math.Round(s.currentBestDev*100) / 100
+	start, end := lo, hi
+	if dir < 0 {
+		start, end = hi, lo
+	}
+	for cand := start; (dir > 0 && cand <= end+s.eps) || (dir < 0 && cand >= end-s.eps); cand += dir {
+		if cand < 0.1 {
+			break
+		}
+		dev := evalDeviation(cand, s.scriptTimeMs, s.baseTargetRPS, s.steps, s.isJMeter, s.generators)
+		if math.Round(dev*100)/100 < currentDisplay-s.eps && (!found || dev < bestDev-s.eps) {
+			found = true
+			bestMult = cand
+			bestDev = dev
+		}
+	}
+	return found, bestMult, bestDev
+}
+
 // findOutsideRangeHints searches for better multipliers just outside the
 // current search range and returns a formatted hint block (may be empty).
 func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS float64, steps []profile.Step, isJMeter bool, generators int, rangeDown, rangeUp, currentBestDev float64) string {
@@ -570,47 +607,33 @@ func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS f
 	step := 1.0 / float64(scriptTimeMs)
 	const eps = 1e-9
 
+	// Minimum meaningful improvement: 0.01% (since we display with 2 decimals).
+	// If current and candidate both round to the same displayed value, don't suggest.
+	const displayPrecision = 0.01
+	if currentBestDev < displayPrecision {
+		return ""
+	}
+
+	searchCtx := searchContext{
+		scriptTimeMs:   scriptTimeMs,
+		baseTargetRPS:  baseTargetRPS,
+		steps:          steps,
+		isJMeter:       isJMeter,
+		generators:     generators,
+		currentBestDev: currentBestDev,
+		step:           step,
+		eps:            eps,
+	}
+
 	// Downward search: [max(0.1, multiplier-5), multiplier - rangeDown).
-	// Find multiplier with LOWEST deviation. On tie, prefer closest to current range.
-	var (
-		downFound bool
-		downMult  float64
-		downDev   float64
-	)
 	lowBound := multiplier - 5
 	if lowBound < 0.1 {
 		lowBound = 0.1
 	}
-	highBound := multiplier - rangeDown
-	for cand := highBound - step; cand >= lowBound-eps; cand -= step {
-		if cand < 0.1 {
-			break
-		}
-		dev := evalDeviation(cand, scriptTimeMs, baseTargetRPS, steps, isJMeter, generators)
-		if dev < currentBestDev-eps && (!downFound || dev < downDev-eps) {
-			downFound = true
-			downMult = cand
-			downDev = dev
-		}
-	}
+	downFound, downMult, downDev := searchCtx.searchBest(lowBound, multiplier-rangeDown-step, -step)
 
 	// Upward search: (multiplier + rangeUp, multiplier + 10].
-	// Find multiplier with LOWEST deviation. On tie, prefer closest to current range.
-	var (
-		upFound bool
-		upMult  float64
-		upDev   float64
-	)
-	upLow := multiplier + rangeUp
-	upHigh := multiplier + 10
-	for cand := upLow + step; cand <= upHigh+eps; cand += step {
-		dev := evalDeviation(cand, scriptTimeMs, baseTargetRPS, steps, isJMeter, generators)
-		if dev < currentBestDev-eps && (!upFound || dev < upDev-eps) {
-			upFound = true
-			upMult = cand
-			upDev = dev
-		}
-	}
+	upFound, upMult, upDev := searchCtx.searchBest(multiplier+rangeUp+step, multiplier+10, step)
 
 	if !downFound && !upFound {
 		return ""
