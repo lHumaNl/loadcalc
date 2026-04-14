@@ -758,6 +758,8 @@ func formatCycleDisplay(val string) string {
 		return "ops/s"
 	case "lre_pc":
 		return "LRE PC"
+	case "jmeter":
+		return "Apache JMeter"
 	default:
 		return val
 	}
