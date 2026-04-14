@@ -43,7 +43,54 @@ Just run the binary with no arguments:
 ./loadcalc
 ```
 
-This launches the **quick calculator TUI** — an interactive form where you type in target intensity, script time, and tool, and results recalculate live as you type. No config file, no flags. This is the fastest way to sanity-check a single scenario.
+This launches the **quick calculator TUI** — an interactive form where you edit parameters and results recalculate live.
+
+```
+  loadcalc quick calculator
+
+  Intensity:      13044
+  Unit:           ops/h
+  Script time:    550 ms
+  Tool:           LRE PC
+  Multiplier:     3.0
+  Range down:     0.2 -
+  Range up:       2.0 +
+  Steps:          50,75,100,125,150
+  Rampup:         60 s
+
+  ── Results ────────────────────────────────────────
+  Pacing: 2,208 ms
+  ╭──────┬──────┬────────┬───────┬─────────┬──────────┬────────┬───────────┬────────┬───────┬─────────╮
+  │ Step │    % │ Vusers │ Delta │ VUBatch │ Every(s) │ Rampup │     ops/h │  ops/m │ ops/s │     Dev │
+  ├──────┼──────┼────────┼───────┼─────────┼──────────┼────────┼───────────┼────────┼───────┼─────────┤
+  │    1 │  50% │      4 │    +4 │       1 │      15s │    60s │  6,521.74 │  108.7 │  1.81 │ 0.00% ✓ │
+  │    2 │  75% │      6 │    +2 │       1 │      30s │    60s │  9,782.61 │ 163.04 │  2.72 │ 0.00% ✓ │
+  │    3 │ 100% │      8 │    +2 │       1 │      30s │    60s │ 13,043.48 │ 217.39 │  3.62 │ 0.00% ✓ │
+  │    4 │ 125% │     10 │    +2 │       1 │      30s │    60s │ 16,304.35 │ 271.74 │  4.53 │ 0.00% ✓ │
+  │    5 │ 150% │     12 │    +2 │       1 │      30s │    60s │ 19,565.22 │ 326.09 │  5.44 │ 0.00% ✓ │
+  ╰──────┴──────┴────────┴───────┴─────────┴──────────┴────────┴───────────┴────────┴───────┴─────────╯
+
+  [Tab] next field  [Space/←/→] cycle  [Ctrl+C] quit
+```
+
+**Features:**
+- **Live recalculation** — any field change instantly updates the result table
+- **Smart hints** — if the current multiplier range can't achieve 0% deviation, the TUI suggests a better multiplier and the exact `Range down` / `Range up` value needed to reach it
+- **Per-step Vusers + ramp-up** for LRE PC: how many Vusers to add at each step, batch size, interval in seconds (you don't have to calculate this yourself)
+- **Multi-unit rates** — ops/h, ops/m, ops/s shown simultaneously
+- **Context-aware fields** — Generators hidden for LRE PC, Multiplier/Range hidden for open model, etc.
+- **Deviation indicators** — `✓` / `⚠` / `✗` plus colors
+
+**Navigation:**
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `↓` | next field |
+| `Shift+Tab` / `↑` | previous field |
+| `Space` / `←` / `→` | cycle options (for Tool, Unit, Model) |
+| Any character | type into text field |
+| `Backspace` | delete last character |
+| `Ctrl+C` | quit |
 
 ### 2. One-shot CLI calculation
 
