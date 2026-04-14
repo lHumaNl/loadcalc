@@ -570,7 +570,7 @@ func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS f
 	const eps = 1e-9
 
 	// Downward search: [max(0.1, multiplier-5), multiplier - rangeDown).
-	// Find HIGHEST multiplier (closest to current range) with lower dev.
+	// Find multiplier with LOWEST deviation. On tie, prefer closest to current range.
 	var (
 		downFound bool
 		downMult  float64
@@ -581,22 +581,20 @@ func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS f
 		lowBound = 0.1
 	}
 	highBound := multiplier - rangeDown
-	// Iterate from high to low, take first improvement (closest to current range).
 	for cand := highBound - step; cand >= lowBound-eps; cand -= step {
 		if cand < 0.1 {
 			break
 		}
 		dev := evalDeviation(cand, scriptTimeMs, baseTargetRPS, steps, isJMeter, generators)
-		if dev < currentBestDev-eps {
+		if dev < currentBestDev-eps && (!downFound || dev < downDev-eps) {
 			downFound = true
 			downMult = cand
 			downDev = dev
-			break
 		}
 	}
 
 	// Upward search: (multiplier + rangeUp, multiplier + 10].
-	// Find LOWEST multiplier (closest to current range) with lower dev.
+	// Find multiplier with LOWEST deviation. On tie, prefer closest to current range.
 	var (
 		upFound bool
 		upMult  float64
@@ -606,11 +604,10 @@ func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS f
 	upHigh := multiplier + 10
 	for cand := upLow + step; cand <= upHigh+eps; cand += step {
 		dev := evalDeviation(cand, scriptTimeMs, baseTargetRPS, steps, isJMeter, generators)
-		if dev < currentBestDev-eps {
+		if dev < currentBestDev-eps && (!upFound || dev < upDev-eps) {
 			upFound = true
 			upMult = cand
 			upDev = dev
-			break
 		}
 	}
 
