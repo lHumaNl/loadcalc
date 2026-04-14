@@ -619,13 +619,15 @@ func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS f
 	var sb strings.Builder
 	sb.WriteString("Better options outside range:\n")
 	if downFound {
-		neededDown := multiplier - downMult
-		fmt.Fprintf(&sb, "  Multiplier %.2f (or Range down: %.2f) → dev %.2f%%\n",
+		// Round needed range UP to 2 decimals so the suggested range is guaranteed
+		// to include the target multiplier despite display rounding.
+		neededDown := math.Ceil((multiplier-downMult)*100) / 100
+		fmt.Fprintf(&sb, "  Multiplier %.3f (or Range down: %.2f) → dev %.2f%%\n",
 			downMult, neededDown, downDev)
 	}
 	if upFound {
-		neededUp := upMult - multiplier
-		fmt.Fprintf(&sb, "  Multiplier %.2f (or Range up: %.2f) → dev %.2f%%\n",
+		neededUp := math.Ceil((upMult-multiplier)*100) / 100
+		fmt.Fprintf(&sb, "  Multiplier %.3f (or Range up: %.2f) → dev %.2f%%\n",
 			upMult, neededUp, upDev)
 	}
 	return sb.String()
