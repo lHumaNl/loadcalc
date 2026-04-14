@@ -25,6 +25,7 @@ var Version = "dev"
 func main() {
 	cmd := newRootCmd()
 	if err := cmd.Execute(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "Error:", err)
 		os.Exit(1)
 	}
 }
