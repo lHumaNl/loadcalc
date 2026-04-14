@@ -566,7 +566,8 @@ func evalDeviation(multiplier float64, scriptTimeMs int, baseTargetRPS float64, 
 // findOutsideRangeHints searches for better multipliers just outside the
 // current search range and returns a formatted hint block (may be empty).
 func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS float64, steps []profile.Step, isJMeter bool, generators int, rangeDown, rangeUp, currentBestDev float64) string {
-	const step = 0.01
+	// Step by multiplier equivalent to 1ms pacing change (matches optimizer granularity).
+	step := 1.0 / float64(scriptTimeMs)
 	const eps = 1e-9
 
 	// Downward search: [max(0.1, multiplier-5), multiplier - rangeDown).
