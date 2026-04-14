@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -196,8 +197,10 @@ func (m QuickModel) handleTextKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.Type { //nolint:exhaustive // only relevant keys handled
 	case tea.KeyBackspace:
+		// Remove last rune, not last byte.
 		if val != "" {
-			val = val[:len(val)-1]
+			_, size := utf8.DecodeLastRuneInString(val)
+			val = val[:len(val)-size]
 		}
 	case tea.KeyRunes:
 		val += string(msg.Runes)
@@ -498,7 +501,136 @@ func (m *QuickModel) calcMultiStep(scenario config.Scenario, tool config.Tool, l
 		sb.WriteString(buildTable(headers, rows))
 	}
 
+	// Hints for better multipliers outside the search range.
+	if optResult.MaxDeviationPct > 0 {
+		multiplier := 3.0
+		if scenario.PacingMultiplier != nil {
+			multiplier = *scenario.PacingMultiplier
+		}
+		baseTargetRPS, uerr := units.NormalizeToOpsPerSec(scenario.TargetIntensity, scenario.IntensityUnit)
+		if uerr == nil {
+			isJMeter := tool == config.ToolJMeter
+			hints := findOutsideRangeHints(multiplier, scenario.MaxScriptTimeMs, baseTargetRPS, stepList, isJMeter, generators, rangeDown, rangeUp, optResult.MaxDeviationPct)
+			if hints != "" {
+				sb.WriteString("\n")
+				sb.WriteString(hints)
+			}
+		}
+	}
+
 	m.resultText = sb.String()
+}
+
+// evalDeviation computes worst-case deviation across all steps for a given
+// multiplier, using the same logic as the optimizer (ceil/floor/round).
+func evalDeviation(multiplier float64, scriptTimeMs int, baseTargetRPS float64, steps []profile.Step, isJMeter bool, generators int) float64 {
+	pacing := float64(scriptTimeMs) * multiplier
+	pacingSec := pacing / 1000
+	if pacingSec <= 0 {
+		return math.MaxFloat64
+	}
+	gens := generators
+	if gens < 1 {
+		gens = 1
+	}
+	var maxDev float64
+	for _, step := range steps {
+		stepTargetRPS := baseTargetRPS * step.PercentOfTarget / 100
+		if isJMeter {
+			stepTargetRPS /= float64(gens)
+		}
+		ideal := stepTargetRPS * pacing / 1000
+		candidates := [3]int{
+			int(math.Ceil(ideal)),
+			int(math.Floor(ideal)),
+			int(math.Round(ideal)),
+		}
+		bestDev := math.MaxFloat64
+		for _, t := range candidates {
+			if t < 1 {
+				t = 1
+			}
+			actual := float64(t) / pacingSec
+			dev := math.Abs(actual-stepTargetRPS) / stepTargetRPS * 100
+			if dev < bestDev {
+				bestDev = dev
+			}
+		}
+		if bestDev > maxDev {
+			maxDev = bestDev
+		}
+	}
+	return maxDev
+}
+
+// findOutsideRangeHints searches for better multipliers just outside the
+// current search range and returns a formatted hint block (may be empty).
+func findOutsideRangeHints(multiplier float64, scriptTimeMs int, baseTargetRPS float64, steps []profile.Step, isJMeter bool, generators int, rangeDown, rangeUp, currentBestDev float64) string {
+	const step = 0.01
+	const eps = 1e-9
+
+	// Downward search: [max(0.1, multiplier-5), multiplier - rangeDown).
+	// Find HIGHEST multiplier (closest to current range) with lower dev.
+	var (
+		downFound bool
+		downMult  float64
+		downDev   float64
+	)
+	lowBound := multiplier - 5
+	if lowBound < 0.1 {
+		lowBound = 0.1
+	}
+	highBound := multiplier - rangeDown
+	// Iterate from high to low, take first improvement (closest to current range).
+	for cand := highBound - step; cand >= lowBound-eps; cand -= step {
+		if cand < 0.1 {
+			break
+		}
+		dev := evalDeviation(cand, scriptTimeMs, baseTargetRPS, steps, isJMeter, generators)
+		if dev < currentBestDev-eps {
+			downFound = true
+			downMult = cand
+			downDev = dev
+			break
+		}
+	}
+
+	// Upward search: (multiplier + rangeUp, multiplier + 10].
+	// Find LOWEST multiplier (closest to current range) with lower dev.
+	var (
+		upFound bool
+		upMult  float64
+		upDev   float64
+	)
+	upLow := multiplier + rangeUp
+	upHigh := multiplier + 10
+	for cand := upLow + step; cand <= upHigh+eps; cand += step {
+		dev := evalDeviation(cand, scriptTimeMs, baseTargetRPS, steps, isJMeter, generators)
+		if dev < currentBestDev-eps {
+			upFound = true
+			upMult = cand
+			upDev = dev
+			break
+		}
+	}
+
+	if !downFound && !upFound {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Better options outside range:\n")
+	if downFound {
+		neededDown := multiplier - downMult
+		fmt.Fprintf(&sb, "  Multiplier %.2f (or Range down: %.2f) → dev %.2f%%\n",
+			downMult, neededDown, downDev)
+	}
+	if upFound {
+		neededUp := upMult - multiplier
+		fmt.Fprintf(&sb, "  Multiplier %.2f (or Range up: %.2f) → dev %.2f%%\n",
+			upMult, neededUp, upDev)
+	}
+	return sb.String()
 }
 
 func (m *QuickModel) calcMultiStepOpen(scenario config.Scenario, stepList []profile.Step, generators int, _ string) {
