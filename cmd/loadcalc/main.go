@@ -40,6 +40,10 @@ func newRootCmd() *cobra.Command {
 		PersistentPreRun: func(_ *cobra.Command, _ []string) {
 			setupLogging(logLevel)
 		},
+		// When invoked without a subcommand, launch the quick calculator TUI.
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return tui.RunQuick()
+		},
 	}
 
 	root.PersistentFlags().StringVar(&logLevel, "log-level", "warn", "Log level: debug|info|warn|error")
@@ -197,15 +201,15 @@ func newTUICmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "tui",
-		Short: "Interactive TUI for exploring calculation results or quick calculator",
+		Short: "Interactive TUI for exploring calculation results from a config file",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if inputPath != "" {
-				return runTUI(cmd, inputPath, outputPath)
+			if inputPath == "" {
+				return fmt.Errorf("--input (-i) is required; to launch the quick calculator run 'loadcalc' without arguments")
 			}
-			return tui.RunQuick()
+			return runTUI(cmd, inputPath, outputPath)
 		},
 	}
-	cmd.Flags().StringVarP(&inputPath, "input", "i", "", "Input config file path (omit for quick calculator)")
+	cmd.Flags().StringVarP(&inputPath, "input", "i", "", "Input config file path (required)")
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output XLSX file path for export")
 	return cmd
 }
