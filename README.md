@@ -10,9 +10,9 @@ Calculates optimal thread counts, pacing, and throughput from target intensity �
 
 ## The Problem
 
-Load testing tools need integer thread counts and fixed pacing values. When your test has multiple intensity steps (100% → 150% → 200%), rounding errors accumulate. Adding 1 thread can overshoot the target by more than the step increment.
+Load testing tools need integer thread counts and fixed pacing values. When a test has multiple intensity steps (100% → 150% → 200%), rounding errors accumulate. Adding a single thread can overshoot the target by more than a full step.
 
-**loadcalc** finds the optimal pacing that minimizes deviation across all steps.
+**loadcalc** finds the pacing that minimizes deviation across all steps, then prints the numbers you need to plug into JMeter or LRE PC.
 
 ---
 
@@ -28,74 +28,107 @@ Download from [Releases](https://github.com/lHumaNl/loadcalc/releases) for your 
 git clone https://github.com/lHumaNl/loadcalc.git
 cd loadcalc
 make build
-# binary: ./bin/loadcalc
+# binary: ./loadcalc
 ```
 
 ---
 
 ## Quick Start
 
-**1. Create a config:**
+### 1. Interactive calculator (the easiest way)
+
+Just run the binary with no arguments:
 
 ```bash
-loadcalc template --format yaml -o config.yaml
+./loadcalc
 ```
 
-**2. Edit it** — set your scenarios, target intensity, and test profile.
+This launches the **quick calculator TUI** — an interactive form where you type in target intensity, script time, and tool, and results recalculate live as you type. No config file, no flags. This is the fastest way to sanity-check a single scenario.
 
-**3. Calculate:**
+### 2. One-shot CLI calculation
+
+When you already know the numbers and just want the answer:
 
 ```bash
+# 720000 ops/h, 1100 ms script, JMeter
+loadcalc quick 720000 1100 jmeter
+
+# Multi-step capacity run on LRE PC
+loadcalc quick 720000 1100 lre_pc --steps 50,75,100,125,150
+```
+
+Flags for `quick`:
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--multiplier` | `3.0` | Pacing multiplier (base) |
+| `--range-down` | `0.2` | Multiplier search range below base |
+| `--range-up` | `0.5` | Multiplier search range above base |
+| `--generators` | `1` | JMeter generator count (ignored for LRE PC) |
+| `--model` | `closed` | Load model: `closed` or `open` |
+| `--unit` | `ops_h` | Intensity unit: `ops_h` / `ops_m` / `ops_s` |
+| `--tolerance` | `2.5` | Max allowed deviation, % |
+| `--steps` | — | Comma-separated percentages for multi-step |
+| `--rampup` | `60` | Ramp-up seconds per step (LRE PC) |
+
+### 3. Full workflow with YAML config
+
+For real tests with multiple scenarios, profiles, and reproducible output:
+
+```bash
+loadcalc template --format yaml -o config.yaml   # generate blank config
+# edit config.yaml — scenarios, target intensity, profile
 loadcalc calculate -i config.yaml -o results.xlsx
 ```
 
-That's it. Open `results.xlsx` — you'll see threads, pacing, deviations, and a timeline chart.
+Open `results.xlsx` — you'll see threads, pacing, deviations, a timeline chart, and (for LRE PC) an "LRE PC Config" sheet with per-step Vusers and ramp-up batches.
 
 ---
 
 ## Commands
 
 | Command | What it does |
-|---------|-------------|
-| `calculate` | Run calculations, output XLSX / JSON / table |
+|---------|--------------|
+| _(no args)_ | Launch interactive quick calculator TUI |
+| `quick` | One-shot CLI calculation for a single scenario |
+| `calculate` | Run full calculation from config, output XLSX / JSON / table |
 | `validate` | Check config for errors |
-| `template` | Generate blank config (YAML / CSV / XLSX) |
-| `tui` | Interactive terminal UI |
+| `template` | Generate blank config (YAML / CSV) |
+| `tui` | Interactive results viewer for a config file |
 | `diff` | Compare two configs side-by-side |
 | `what-if` | Tweak a parameter, see the impact |
 | `merge` | Combine multiple configs into one |
 | `jmx generate` | Create a JMeter .jmx from scratch |
-| `jmx inject` | Add ThreadGroups into existing .jmx |
+| `jmx inject` | Add/update ThreadGroups in an existing .jmx |
 | `lre push` | Push results to LRE Performance Center |
 | `lre list-tests` | List tests in LRE PC |
 | `lre list-scripts` | List scripts in LRE PC |
 
 ---
 
-## Config Example
+## YAML Config
 
 ```yaml
 version: "1.0"
 
 global:
   tool: jmeter              # jmeter | lre_pc
-  load_model: closed         # closed | open
+  load_model: closed        # closed | open
   pacing_multiplier: 3.0
-  deviation_tolerance: 2.5   # max allowed deviation, %
-  generators_count: 3        # JMeter only
-  range_down: 0.2            # multiplier search range below base
-  range_up: 0.5              # multiplier search range above base
+  deviation_tolerance: 2.5  # max allowed deviation, %
+  generators_count: 3       # JMeter only
+  range_down: 0.2           # multiplier search range below base
+  range_up: 0.5             # multiplier search range above base
 
-scenarios:
+scenarios:                  # MAP — key is the scenario name (must be unique)
   Main page:
-    script_id: 101           # LRE PC only
+    script_id: 101          # LRE PC only — script ID in Performance Center
     target_intensity: 720000
-    intensity_unit: ops_h    # ops_h | ops_m | ops_s
+    intensity_unit: ops_h   # optional, defaults to ops_h
     max_script_time_ms: 1100
 
   Background load:
     target_intensity: 90000
-    intensity_unit: ops_h
     max_script_time_ms: 200
     background: true
     background_percent: 100
@@ -104,14 +137,21 @@ profile:
   type: capacity            # stability | capacity | custom | spike
   start_percent: 50
   step_increment: 25
-  num_steps: 5               # steps: 50%, 75%, 100%, 125%, 150%
+  num_steps: 5              # steps: 50%, 75%, 100%, 125%, 150%
   default_rampup_sec: 60
   default_stability_sec: 300
 ```
 
-### Scenarios from CSV / XLSX
+Notes:
+- `scenarios` is a **map** (key = scenario name). Duplicate names are a validation error.
+- `intensity_unit` is optional and defaults to `ops_h`.
+- `script_id` is only needed for LRE PC; JMeter ignores it.
 
-Scenarios can also be loaded from external files — easier to manage in Excel or copy from Confluence:
+---
+
+## Scenarios from CSV / XLSX
+
+Scenarios can also be loaded from external files — easier to edit in Excel or copy from Confluence:
 
 ```bash
 loadcalc calculate -i config.yaml --scenarios scenarios.csv
@@ -119,7 +159,7 @@ loadcalc calculate -i config.yaml --scenarios uc_web.csv --scenarios uc_api.csv
 loadcalc calculate -i config.yaml --scenarios-dir ./scenarios/
 ```
 
-YAML scenarios and file scenarios are **concatenated** — you can keep "always-on" scenarios in YAML and vary the rest via CSV.
+YAML scenarios and file scenarios are **concatenated** — keep "always-on" scenarios in YAML, vary the rest via CSV. Duplicate names across all sources are a validation error.
 
 Generate a blank template:
 
@@ -127,14 +167,12 @@ Generate a blank template:
 loadcalc template --format csv -o scenarios.csv
 ```
 
-CSV delimiter is `;` by default (override with `--csv-delimiter ","`).
-XLSX uses the same columns on a sheet named "Scenarios".
-Empty cells use global defaults. Column order doesn't matter.
+CSV delimiter defaults to `;` (override with `--csv-delimiter ","`). XLSX uses the same columns on a sheet named "Scenarios". Empty cells inherit global defaults. Column order does not matter.
 
-**Example** (how it looks in a spreadsheet or CSV):
+**Example:**
 
 | name | script_id | target_intensity | intensity_unit | max_script_time_ms | background | background_percent | load_model | pacing_multiplier |
-|------|-----------|-----------------|---------------|-------------------|------------|-------------------|------------|------------------|
+|------|-----------|------------------|----------------|--------------------|------------|--------------------|------------|-------------------|
 | Main page | 101 | 720000 | ops_h | 1100 | | | | |
 | Test page | 102 | 1500 | ops_m | 1000 | | | | 4.0 |
 | 404 page | 103 | 90000 | ops_h | 200 | true | 100 | | |
@@ -144,17 +182,17 @@ Empty cells use global defaults. Column order doesn't matter.
 
 | Column | Required | Default | Description |
 |--------|----------|---------|-------------|
-| `name` | yes | — | Scenario name (LRE PC: group name in test) |
+| `name` | yes | — | Scenario name (also LRE PC group name). Must be unique. |
 | `script_id` | LRE PC only | — | Script ID in Performance Center (ignored for JMeter) |
 | `target_intensity` | yes | — | Target load value |
 | `intensity_unit` | no | `ops_h` | `ops_h` / `ops_m` / `ops_s` |
-| `max_script_time_ms` | yes | — | Max script execution time in milliseconds |
+| `max_script_time_ms` | yes | — | Max script execution time (ms) |
 | `background` | no | `false` | `true` = fixed load, ignores step scaling |
 | `background_percent` | no | `100` | % of target intensity for background scenarios |
 | `load_model` | no | from global | `closed` / `open` |
-| `pacing_multiplier` | no | from global | Override pacing multiplier for this scenario |
+| `pacing_multiplier` | no | from global | Override pacing multiplier |
 | `deviation_tolerance` | no | from global | Override max allowed deviation (%) |
-| `spike_participate` | no | from global | `true` / `false` — participate in spike phases |
+| `spike_participate` | no | from global | Participate in spike phases |
 
 ---
 
@@ -162,7 +200,7 @@ Empty cells use global defaults. Column order doesn't matter.
 
 | Profile | Use case |
 |---------|----------|
-| **stability** | Single step at fixed % of target |
+| **stability** | Single step at a fixed % of target |
 | **capacity** | Incrementing steps to find system max (supports `fine_tune` for two-range increments) |
 | **custom** | Arbitrary step list in any order, repeats allowed |
 | **spike** | Base load + growing spikes to test resilience |
@@ -171,12 +209,14 @@ Empty cells use global defaults. Column order doesn't matter.
 
 ## Key Features
 
-- **Pacing optimizer** — brute-force search across ±25% range, tries ceil/floor/round, minimizes worst-case deviation
+- **Interactive quick calculator** — `./loadcalc` with no args, live recalculation as you type
+- **Pacing optimizer** — brute-force search across a configurable multiplier range, tries ceil/floor/round, minimizes worst-case deviation
 - **Multi-tool** — LRE PC (closed model) and JMeter (closed + open models)
 - **Flexible input** — YAML config + CSV/XLSX scenarios, multiple files, directory loading
-- **JMeter .jmx** — generate from scratch, inject into existing, update ThreadGroups by name (STG\_/UTG\_/FFATG\_ prefix matching)
-- **LRE PC API** — push groups, pacing, and scheduler directly
-- **What-if analysis** — change any parameter with `--set`, see before/after
+- **XLSX output** — scenarios, steps, timeline chart, and a dedicated "LRE PC Config" sheet with Vusers per step, batch size, and interval
+- **JMeter .jmx** — generate from scratch, inject into existing templates, update ThreadGroups by name (STG\_/UTG\_/FFATG\_ prefixes)
+- **LRE PC API** — update existing tests by `--test-id`, or create a new test with `--test-name` + `--test-folder`. Ramp-up batch/interval is calculated automatically.
+- **What-if analysis** — change any parameter with `--set`, compare before/after
 - **Single binary** — no runtime dependencies, cross-platform
 
 ---
@@ -184,13 +224,20 @@ Empty cells use global defaults. Column order doesn't matter.
 ## Usage Examples
 
 ```bash
-# Calculate and export to XLSX
+# Interactive quick calculator (no args)
+./loadcalc
+
+# One-shot CLI calc
+loadcalc quick 720000 1100 jmeter --multiplier 3.5
+loadcalc quick 720000 1100 lre_pc --steps 50,75,100,125,150 --rampup 120
+
+# Full calculation, export to XLSX
 loadcalc calculate -i config.yaml -o results.xlsx
 
 # JSON output to stdout
 loadcalc calculate -i config.yaml --format json
 
-# Interactive TUI
+# Interactive results viewer for a config
 loadcalc tui -i config.yaml
 
 # Compare configs
@@ -202,25 +249,26 @@ loadcalc what-if -i config.yaml --set global.pacing_multiplier=4.0
 # Merge team configs
 loadcalc merge web.yaml api.yaml -o combined.yaml
 
-# Generate JMeter test plan
+# JMeter — generate from scratch
 loadcalc jmx generate -i config.yaml -o test.jmx
 
-# Inject into existing .jmx
+# JMeter — inject into existing .jmx
 loadcalc jmx inject -i config.yaml --jmx-template base.jmx -o test.jmx
 
-# Update existing ThreadGroups in .jmx
+# JMeter — update existing ThreadGroups in-place
 loadcalc jmx inject -i config.yaml --jmx-template base.jmx -o test.jmx --update-existing
 
-# Push to existing LRE PC test
-loadcalc lre push -i config.yaml --server https://lre.company.com \
+# LRE PC — push to an existing test
+loadcalc lre push -i config.yaml --server https://lre.company.com/LoadTest/rest \
   --domain PERF --project MyProject --test-id 123
 
-# Create a new test in LRE PC and push
-loadcalc lre push -i config.yaml --server https://lre.company.com \
-  --domain PERF --project MyProject --test-name "Release 2.1 Perf Test" --test-folder "Subject/Perf"
+# LRE PC — create a new test and push
+loadcalc lre push -i config.yaml --server https://lre.company.com/LoadTest/rest \
+  --domain PERF --project MyProject \
+  --test-name "Release 2.1 Perf Test" --test-folder "Subject/Perf"
 
-# Dry run (see what would be pushed without making changes)
-loadcalc lre push -i config.yaml --server https://lre.company.com \
+# LRE PC — dry run
+loadcalc lre push -i config.yaml --server https://lre.company.com/LoadTest/rest \
   --domain PERF --project MyProject --test-id 123 --dry-run
 ```
 
